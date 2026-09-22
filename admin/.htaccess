@@ -1,0 +1,6 @@
+# =============================================================
+# /admin does not exist yet (it is built in Phase 4).
+# Deny everything now so nothing under /admin is reachable.
+# =============================================================
+
+Require all denied

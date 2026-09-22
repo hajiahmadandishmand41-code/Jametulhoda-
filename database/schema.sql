@@ -1,0 +1,11 @@
+-- =============================================================
+-- schema.sql — single source of the database structure
+--
+-- Phase 1: no tables yet.
+-- Content tables (articles, news, events, reports, ...) are
+-- introduced in their own phases (content in Phase 2,
+-- authentication in Phase 4).
+--
+-- Rule: apply schema changes here only — never edit the live
+-- database structure by hand.
+-- =============================================================

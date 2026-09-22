@@ -1,0 +1,19 @@
+# Environment-specific config (copy config/local.example.php -> config/local.php)
+config/local.php
+
+# Logs
+logs/*
+!logs/.gitkeep
+
+# Uploaded content (placeholder .gitkeep files stay)
+uploads/images/*
+uploads/audio/*
+uploads/video/*
+uploads/documents/*
+!uploads/images/.gitkeep
+!uploads/audio/.gitkeep
+!uploads/video/.gitkeep
+!uploads/documents/.gitkeep
+
+# Composer
+vendor/

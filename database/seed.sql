@@ -1,0 +1,6 @@
+-- =============================================================
+-- seed.sql — initial/development data
+--
+-- Phase 1: nothing to seed yet (no tables exist).
+-- Seeds are added together with their tables in later phases.
+-- =============================================================

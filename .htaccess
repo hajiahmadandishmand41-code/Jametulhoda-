@@ -1,0 +1,31 @@
+# =============================================================
+# Front Controller — Phase 1
+# Apache 2.4 (shared hosting / InfinityFree).
+# Requires mod_rewrite (enabled by default on shared hosting).
+# =============================================================
+
+# No directory listing
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1) Never serve dotfiles and internal directories -> 403
+    RewriteRule (^|/)(\..*|config|app|views|pages|tests|database|docs|logs)(/|$) - [F,L]
+
+    # 2) Real files/directories (assets, uploads) are served as-is
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 3) Everything else goes to the front controller
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Basic security headers (when mod_headers is available)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+</IfModule>

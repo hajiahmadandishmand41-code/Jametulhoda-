@@ -1,0 +1,20 @@
+# =============================================================
+# /uploads — static media only (Phase 3 will store files here)
+# Code execution is never allowed in this directory.
+# =============================================================
+
+Options -ExecCGI
+
+# Disable the PHP engine in this directory (Apache + mod_php)
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+
+# Defensively: strip PHP handlers/types from script extensions
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .phar
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .phar
+
+# Deny direct access to any script file
+<FilesMatch "\.(?i:php|phtml|phar|pl|py|cgi|sh|jsp|asp|aspx)$">
+    Require all denied
+</FilesMatch>

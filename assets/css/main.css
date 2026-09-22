@@ -1,0 +1,243 @@
+/* ============================================================
+   main.css — Phase 1 base styles (RTL, mobile-first, no framework)
+   System font stack: fast loading, no webfont dependency.
+   ============================================================ */
+
+:root {
+    --color-bg: #f6f7fb;
+    --color-surface: #ffffff;
+    --color-text: #1c2333;
+    --color-muted: #5b6478;
+    --color-primary: #2456d6;
+    --color-primary-dark: #1c46b3;
+    --color-primary-soft: #e8eefc;
+    --color-border: #e3e7f0;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(28, 35, 51, 0.06), 0 8px 24px rgba(28, 35, 51, 0.06);
+    --container: 1080px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: Vazirmatn, "Segoe UI", Tahoma, "Iranian Sans", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.8;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.container {
+    width: 100%;
+    max-width: var(--container);
+    margin-inline: auto;
+    padding-inline: 16px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------- Header ---------- */
+
+.site-header {
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 64px;
+}
+
+.brand {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.brand:hover {
+    text-decoration: none;
+}
+
+.site-nav {
+    display: flex;
+    gap: 8px;
+}
+
+.site-nav a {
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: var(--color-muted);
+    font-weight: 500;
+}
+
+.site-nav a:hover {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+/* ---------- Main ---------- */
+
+.site-main {
+    padding-block: 32px 48px;
+}
+
+/* Hero */
+
+.hero {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 40px 24px;
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.hero h1 {
+    margin: 0 0 8px;
+    font-size: 1.9rem;
+}
+
+.hero-lead {
+    margin: 0 auto;
+    max-width: 560px;
+    color: var(--color-muted);
+}
+
+.hero-note {
+    display: inline-block;
+    margin-top: 16px;
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+    font-size: 0.85rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+}
+
+/* Sections grid */
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+}
+
+.card h3 {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+}
+
+.card p {
+    margin: 0;
+    color: var(--color-muted);
+}
+
+/* ---------- 404 ---------- */
+
+.not-found {
+    text-align: center;
+    padding: 48px 16px;
+}
+
+.not-found-code {
+    margin: 0;
+    font-size: 4rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--color-primary);
+}
+
+.not-found h1 {
+    font-size: 1.5rem;
+    margin: 16px 0 8px;
+}
+
+.not-found p {
+    margin: 0 0 24px;
+    color: var(--color-muted);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+    display: inline-block;
+    background: var(--color-primary);
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.btn:hover {
+    background: var(--color-primary-dark);
+    text-decoration: none;
+}
+
+/* ---------- Footer ---------- */
+
+.site-footer {
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+    padding-block: 20px;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}
+
+.footer-inner p {
+    margin: 0;
+}
+
+/* ---------- Tablet & up ---------- */
+
+@media (min-width: 768px) {
+    .hero {
+        padding: 56px 40px;
+    }
+
+    .hero h1 {
+        font-size: 2.4rem;
+    }
+}

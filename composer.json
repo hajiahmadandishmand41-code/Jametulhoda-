@@ -1,0 +1,16 @@
+{
+    "name": "purephp/site",
+    "description": "Persian RTL website built with plain PHP (no framework) — Phase 1: core",
+    "type": "project",
+    "license": "UNLICENSED",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-mbstring": "*"
+    },
+    "scripts": {
+        "test": "php tests/run.php",
+        "serve": "php -S 0.0.0.0:8080 index.php"
+    }
+}
