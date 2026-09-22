@@ -55,7 +55,15 @@ final class BasicsTest extends TestCase
     {
         $config = $this->read('config/config.php');
         $this->assertContains("'password' => ''", $config, 'default DB password must be empty');
-        $this->assertNotContains('site_dev_pass', $config, 'committed config must not contain real passwords');
+        // Read any real local password dynamically (never hardcode secrets in tests)
+        $localFile = BASE_PATH . '/config/local.php';
+        if (is_file($localFile)) {
+            $local = (array) require $localFile;
+            $realPassword = (string) ($local['db']['password'] ?? '');
+            if ($realPassword !== '') {
+                $this->assertNotContains($realPassword, $config, 'committed config must not contain the real local password');
+            }
+        }
     }
 
     public function testLayoutEscapesDynamicValues(): void
