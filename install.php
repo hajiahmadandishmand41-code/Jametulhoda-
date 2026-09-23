@@ -22,6 +22,19 @@ if (!headers_sent()) {
     header('X-Frame-Options: SAMEORIGIN');
 }
 
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    ini_set('session.use_cookies', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_samesite', 'Lax');
+    session_name('jametulhoda_install');
+    session_start();
+}
+if (empty($_SESSION['install_csrf']) || !is_string($_SESSION['install_csrf'])) {
+    $_SESSION['install_csrf'] = bin2hex(random_bytes(32));
+}
+
 $lockFile = __DIR__ . '/config/installed.lock';
 $localConfigFile = __DIR__ . '/config/local.php';
 $errors = [];
@@ -360,7 +373,14 @@ if (is_file($lockFile)) {
     $locked = false;
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $old = installer_old_input();
-        $errors = installer_validate_input($old);
+        $submittedToken = is_string($_POST['install_csrf'] ?? null) ? (string) $_POST['install_csrf'] : '';
+        if (!hash_equals((string) $_SESSION['install_csrf'], $submittedToken)) {
+            $errors[] = 'درخواست نصب معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.';
+        }
+        if (is_file($localConfigFile) && empty($_POST['confirm_overwrite'])) {
+            $errors[] = 'config/local.php از قبل وجود دارد. برای ادامه باید گزینهٔ تأیید بازنویسی را فعال کنید.';
+        }
+        $errors = array_merge($errors, installer_validate_input($old));
         if (!installer_requirements_ok()) {
             $errors[] = 'پیش‌نیازهای نصب کامل نیستند.';
         }
@@ -464,6 +484,10 @@ $requirements = installer_requirements();
             <?php endif; ?>
 
             <form class="install-form" method="post" action="<?= e(url('/install.php')) ?>" autocomplete="off" novalidate>
+                <input type="hidden" name="install_csrf" value="<?= e((string) $_SESSION['install_csrf']) ?>">
+                <?php if (is_file($localConfigFile)): ?>
+                    <label class="checkbox-label install-confirm"><input type="checkbox" name="confirm_overwrite" value="1"> config/local.php موجود است؛ بازنویسی آگاهانه را تأیید می‌کنم.</label>
+                <?php endif; ?>
                 <fieldset>
                     <legend>اطلاعات سایت</legend>
                     <label>نام سایت<input name="site_name" required maxlength="160" value="<?= e($old['site_name']) ?>"></label>
