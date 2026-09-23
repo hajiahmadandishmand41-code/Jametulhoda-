@@ -7,7 +7,7 @@ $user = currentUser();
 $pageTitle = (string) ($title ?? 'داشبورد');
 $navigation = [
     ['label' => 'داشبورد', 'icon' => '⌂', 'active' => true],
-    ['label' => 'خبرها', 'icon' => '▤'],
+    ['label' => 'محتوا', 'icon' => '▤', 'href' => '/admin/content'],
     ['label' => 'مقالات', 'icon' => '▥'],
     ['label' => 'گزارش‌ها', 'icon' => '▦'],
     ['label' => 'رویدادها', 'icon' => '◷'],
@@ -39,10 +39,10 @@ $navigation = [
                     <a class="admin-nav-item is-active" href="<?= e(url('/admin')) ?>" aria-current="page">
                         <span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span>
                     </a>
+                <?php elseif (!empty($item['href'])): ?>
+                    <a class="admin-nav-item" href="<?= e(url($item['href'])) ?>"><span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span></a>
                 <?php else: ?>
-                    <span class="admin-nav-item is-disabled" aria-disabled="true">
-                        <span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span>
-                    </span>
+                    <span class="admin-nav-item is-disabled" aria-disabled="true"><span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span></span>
                 <?php endif; ?>
             <?php endforeach; ?>
         </nav>

@@ -116,6 +116,41 @@ function define_routes(Router $router): void
         ]);
     });
 
+    // Phase 4 newsroom: all mutations are admin-only and CSRF protected.
+    $adminOnly = static function (): bool { return requireRole('admin'); };
+    $router->get('/admin/content', static function () use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+        $page = max(1, (int)($_GET['page'] ?? 1)); $limit = 20;
+        $type = in_array($_GET['type'] ?? '', ContentRepository::TYPES, true) ? (string)$_GET['type'] : null;
+        $status = in_array($_GET['status'] ?? '', ContentRepository::STATUSES, true) ? (string)$_GET['status'] : null;
+        $q = is_string($_GET['q'] ?? null) ? trim((string)$_GET['q']) : '';
+        $repo = new ContentRepository(); $total = $repo->adminCount($type, $status, $q);
+        admin_view('content_registry', ['title'=>'مخزن محتوا','rows'=>$repo->adminList($type,$status,$q,$limit,($page-1)*$limit),'total'=>$total,'page'=>$page,'pages'=>max(1,(int)ceil($total/$limit)),'filters'=>['type'=>$type??'','status'=>$status??'','q'=>$q]]);
+    });
+    $router->get('/admin/content/new', static function () use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+        admin_view('content_form',['title'=>'محتوای جدید','action'=>url('/admin/content/new'),'item'=>['content_type'=>'news','status'=>'draft'],'topics'=>(new TopicRepository())->allActive()]);
+    });
+    $router->add('POST', '/admin/content/new', static function () use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD]??null)?$_POST[Csrf::FIELD]:null)) { http_response_code(403); echo 'درخواست نامعتبر است.'; return; }
+        $type=(string)($_POST['content_type']??''); $title=trim((string)($_POST['title']??'')); $slug=slugify((string)($_POST['slug']??'')); $status=(string)($_POST['status']??'draft'); $repo=new ContentRepository(); $errors=[];
+        if (!in_array($type,ContentRepository::TYPES,true)) $errors[]='نوع محتوا نامعتبر است.'; if ($title===''||mb_strlen($title)>250) $errors[]='عنوان الزامی است.'; if ($slug===''||mb_strlen($slug)>190) $errors[]='Slug نامعتبر است.'; if ($repo->slugExists($type,$slug)) $errors[]='این Slug قبلاً استفاده شده است.'; if (!in_array($status,ContentRepository::STATUSES,true)) $errors[]='وضعیت نامعتبر است.';
+        if ($errors) { admin_view('content_form',['title'=>'محتوای جدید','action'=>url('/admin/content/new'),'item'=>$_POST,'topics'=>(new TopicRepository())->allActive(),'errors'=>$errors]); return; }
+        $repo->create(['content_type'=>$type,'slug'=>$slug,'title'=>$title,'summary'=>trim((string)($_POST['summary']??'')),'body'=>trim((string)($_POST['body']??'')),'topic_id'=>($_POST['topic_id']??'')!==''?(int)$_POST['topic_id']:null,'status'=>$status,'published_at'=>((string)($_POST['published_at']??''))!==''?str_replace('T',' ',(string)$_POST['published_at']):null]); redirect('/admin/content',303);
+    });
+    $router->get('/admin/content/edit/{id}', static function (array $params) use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); return; } $item=(new ContentRepository())->find((int)$params['id']); if (!$item) { http_response_code(404); echo 'پیدا نشد'; return; }
+        admin_view('content_form',['title'=>'ویرایش محتوا','action'=>url('/admin/content/edit/'.$item['id']),'item'=>$item,'topics'=>(new TopicRepository())->allActive()]);
+    });
+    $router->add('POST', '/admin/content/edit/{id}', static function (array $params) use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); return; } if (!csrf_verify(is_string($_POST[Csrf::FIELD]??null)?$_POST[Csrf::FIELD]:null)) { http_response_code(403); return; }
+        $id=(int)$params['id']; $repo=new ContentRepository(); $old=$repo->find($id); if (!$old) { http_response_code(404); return; } $slug=slugify((string)($_POST['slug']??'')); $errors=[]; if(trim((string)($_POST['title']??''))==='')$errors[]='عنوان الزامی است.'; if($slug===''||$repo->slugExists($old['content_type'],$slug,$id))$errors[]='Slug نامعتبر یا تکراری است.';
+        if($errors){admin_view('content_form',['title'=>'ویرایش محتوا','action'=>url('/admin/content/edit/'.$id),'item'=>array_merge($old,$_POST),'topics'=>(new TopicRepository())->allActive(),'errors'=>$errors]);return;}
+        $repo->update($id,['slug'=>$slug,'title'=>trim((string)$_POST['title']),'summary'=>trim((string)($_POST['summary']??'')),'body'=>trim((string)($_POST['body']??'')),'topic_id'=>($_POST['topic_id']??'')!==''?(int)$_POST['topic_id']:null,'status'=>(string)$_POST['status'],'published_at'=>((string)($_POST['published_at']??''))!==''?str_replace('T',' ',(string)$_POST['published_at']):null]); redirect('/admin/content',303);
+    });
+    $router->get('/admin/content/{id}', static function (array $params) use ($adminOnly): void { if(!$adminOnly()){http_response_code(403);return;} $item=(new ContentRepository())->find((int)$params['id']); if(!$item){http_response_code(404);echo'پیدا نشد';return;} admin_view('content_form',['title'=>'مشاهده محتوا','action'=>url('/admin/content/edit/'.$item['id']),'item'=>$item,'topics'=>(new TopicRepository())->allActive()]); });
+
     $router->add('POST', '/logout', static function (): void {
         $csrf = is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null;
         if (!csrf_verify($csrf)) {
