@@ -26,10 +26,8 @@ function define_routes(Router $router): void
     };
 
     $router->get('/', static function (): void {
-        view('home', [
-            'title' => 'خانه',
-            'metaDescription' => (string) Config::get('app.description'),
-        ]);
+        $repo=new ContentRepository(); $latest=$repo->publicList('news',6,0); $featured=$latest[0]??null;
+        view('home', ['title'=>'خانه','metaDescription'=>(string)Config::get('app.description'),'latest'=>$latest,'featured'=>$featured,'articles'=>$repo->publicList('article',4,0),'reports'=>$repo->publicList('report',4,0),'events'=>$repo->publicList('event',4,0),'topics'=>(new TopicRepository())->allActive()]);
     });
 
     $router->get('/login', static function () use ($renderLogin): void {
@@ -116,6 +114,21 @@ function define_routes(Router $router): void
             ],
         ]);
     });
+
+    // Public Phase 5 content surface.
+    foreach (['news'=>'خبرها','articles'=>'مقالات','reports'=>'گزارش‌ها','events'=>'رویدادها'] as $publicPath => $publicLabel) {
+        $type = $publicPath === 'articles' ? 'article' : rtrim($publicPath, 's');
+        $router->get('/' . $publicPath, static function () use ($type, $publicLabel, $publicPath): void {
+            $page=max(1,(int)($_GET['page']??1));$limit=12;$repo=new ContentRepository();$total=$repo->publicCount($type);view('public_listing',['title'=>$publicLabel,'heading'=>$publicLabel,'type'=>$type,'items'=>$repo->publicList($type,$limit,($page-1)*$limit),'page'=>$page,'pages'=>max(1,(int)ceil($total/$limit)),'path'=>'/'.$publicPath]);
+        });
+        $router->get('/' . $publicPath . '/{slug}', static function (array $params) use ($type, $publicLabel): void {
+            $item=(new ContentRepository())->findPublishedBySlug($type,rawurldecode($params['slug'])); if(!$item){http_response_code(404);view('404',['title'=>'صفحه پیدا نشد','metaDescription'=>'']);return;} $related=(new ContentRepository())->relatedPublished((int)$item['id']); view('public_detail',['title'=>$item['title'],'metaDescription'=>$item['summary']??'','item'=>$item,'related'=>$related]);
+        });
+    }
+    $router->get('/search', static function (): void { $q=is_string($_GET['q']??null)?trim((string)$_GET['q']):''; $page=max(1,(int)($_GET['page']??1));$repo=new ContentRepository();$items=$q===''?[]:$repo->publicSearch($q,12,($page-1)*12);$total=$q===''?0:$repo->publicCount(null,null,$q);view('public_listing',['title'=>'جستجو','heading'=>'نتایج جستجو برای: '.$q,'type'=>'news','items'=>$items,'page'=>$page,'pages'=>max(1,(int)ceil($total/12)),'path'=>'/search?q='.rawurlencode($q)]); });
+    $router->get('/topics/{slug}', static function (array $params): void { $topic=(new TopicRepository())->findBySlug(rawurldecode($params['slug']));if(!$topic){http_response_code(404);view('404',['title'=>'صفحه پیدا نشد']);return;}$page=max(1,(int)($_GET['page']??1));$repo=new ContentRepository();$total=$repo->publicCount(null,(int)$topic['id']);view('public_listing',['title'=>$topic['title'],'heading'=>$topic['title'],'type'=>'news','items'=>$repo->publicByTopic((int)$topic['id'],12,($page-1)*12),'page'=>$page,'pages'=>max(1,(int)ceil($total/12)),'path'=>'/topics/'.$topic['slug']]); });
+    $router->get('/sitemap.xml', static function (): void { header('Content-Type: application/xml; charset=UTF-8');$repo=new ContentRepository();$urls=[url('/')];foreach(['news','article','report','event'] as $type){foreach($repo->publicList($type,100,0) as $item)$urls[]=url('/'.($type==='article'?'articles':$type.'s').'/'.$item['slug']);}echo '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';foreach($urls as $u)echo '<url><loc>'.e($u).'</loc></url>';echo '</urlset>'; });
+    $router->get('/robots.txt', static function (): void { header('Content-Type: text/plain; charset=UTF-8'); echo "User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: ".url('/sitemap.xml')."\n"; });
 
     // Phase 4 newsroom: all mutations are admin-only and CSRF protected.
     $adminOnly = static function (): bool { return requireRole('admin'); };

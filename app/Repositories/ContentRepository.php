@@ -183,6 +183,30 @@ final class ContentRepository extends BaseRepository
         ) > 0;
     }
 
+    /** Public listing: only published and already available rows. */
+    public function publicList(string $type, int $limit = 12, int $offset = 0): array
+    {
+        $this->assertType($type); [$limit,$offset]=$this->paging($limit,$offset,50);
+        return db_all(sprintf('SELECT c.*, t.title AS topic_title FROM contents c LEFT JOIN topics t ON t.id=c.topic_id WHERE c.content_type=? AND c.status=\'published\' AND c.published_at IS NOT NULL AND c.published_at<=? ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d',$limit,$offset),[$type,date('Y-m-d H:i:s')]);
+    }
+    public function publicCount(?string $type = null, ?int $topicId = null, string $query = ''): int
+    {
+        $where=["c.status='published'",'c.published_at IS NOT NULL','c.published_at<=?']; $params=[date('Y-m-d H:i:s')];
+        if($type!==null){$this->assertType($type);$where[]='c.content_type=?';$params[]=$type;}
+        if($topicId!==null){$where[]='c.topic_id=?';$params[]=$topicId;}
+        if($query!==''){$where[]='(c.title LIKE ? OR c.body LIKE ? OR t.title LIKE ?)';$q='%'.$query.'%';array_push($params,$q,$q,$q);}
+        return (int)db_value('SELECT COUNT(*) FROM contents c LEFT JOIN topics t ON t.id=c.topic_id WHERE '.implode(' AND ',$where),$params,0);
+    }
+    public function publicSearch(string $query, int $limit=12, int $offset=0): array
+    {
+        [$limit,$offset]=$this->paging($limit,$offset,50);$q='%'.$query.'%';
+        return db_all(sprintf("SELECT c.*,t.title AS topic_title FROM contents c LEFT JOIN topics t ON t.id=c.topic_id WHERE c.status='published' AND c.published_at IS NOT NULL AND c.published_at<=? AND (c.title LIKE ? OR c.body LIKE ? OR t.title LIKE ?) ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d",$limit,$offset),[date('Y-m-d H:i:s'),$q,$q,$q]);
+    }
+    public function publicByTopic(int $topicId,int $limit=12,int $offset=0): array
+    {
+        [$limit,$offset]=$this->paging($limit,$offset,50); return db_all(sprintf("SELECT c.*,t.title AS topic_title FROM contents c JOIN topics t ON t.id=c.topic_id WHERE c.topic_id=? AND c.status='published' AND c.published_at IS NOT NULL AND c.published_at<=? ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d",$limit,$offset),[$topicId,date('Y-m-d H:i:s')]);
+    }
+
     /** Admin registry query: all content with safe, whitelisted filters. */
     public function adminList(?string $type, ?string $status, string $search, int $limit = 20, int $offset = 0): array
     {

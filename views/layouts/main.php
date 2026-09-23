@@ -31,6 +31,10 @@ $logoutCsrfField = $authenticated && function_exists('csrf_field') ? csrf_field(
     <?php if ($description !== ''): ?>
     <meta name="description" content="<?= e($description) ?>">
     <?php endif; ?>
+    <link rel="canonical" href="<?= e(url(parse_url((string)($_SERVER['REQUEST_URI']??'/'), PHP_URL_PATH) ?: '/')) ?>">
+    <meta property="og:title" content="<?= e($pageTitle) ?>">
+    <meta property="og:description" content="<?= e($description) ?>">
+    <meta property="og:type" content="website">
     <link rel="stylesheet" href="<?= e(asset('css/main.css')) ?>">
 </head>
 <body>

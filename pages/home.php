@@ -1,38 +1,4 @@
-<?php
-
-declare(strict_types=1);
-
-/**
- * Homepage — Phase 1 (core).
- *
- * In Phase 2 the "coming soon" cards are replaced with real content
- * (latest articles, news, upcoming events, latest reports) from the database.
- */
-?>
-<section class="hero">
-    <h1><?= e(Config::get('app.name')) ?></h1>
-    <p class="hero-lead"><?= e(Config::get('app.description')) ?></p>
-    <span class="hero-note">نسخهٔ ۱ — هستهٔ سیستم آماده است</span>
-</section>
-
-<section class="sections" aria-label="بخش‌های سایت">
-    <h2 class="visually-hidden">بخش‌های سایت</h2>
-    <div class="grid">
-        <article class="card">
-            <h3>مقالات</h3>
-            <p>به‌زودی</p>
-        </article>
-        <article class="card">
-            <h3>اخبار</h3>
-            <p>به‌زودی</p>
-        </article>
-        <article class="card">
-            <h3>رویدادها</h3>
-            <p>به‌زودی</p>
-        </article>
-        <article class="card">
-            <h3>گزارش‌ها</h3>
-            <p>به‌زودی</p>
-        </article>
-    </div>
-</section>
+<?php /** @var list<array<string,mixed>> $latest */ ?><section class="portal-hero"><p class="eyebrow">مرکز محتوای جامت‌الهدی</p><h1>روایت‌های تازه، آگاهی ماندگار</h1><p><?=e((string)Config::get('app.description'))?></p><form class="portal-search" action="<?=e(url('/search'))?>"><input name="q" placeholder="جستجو در محتوا" aria-label="جستجو"><button>جستجو</button></form></section>
+<?php if($featured): ?><section class="featured-story"><p class="eyebrow">خبر منتخب</p><h2><a href="<?=e(url('/news/'.$featured['slug']))?>"><?=e($featured['title'])?></a></h2><p><?=e($featured['summary']??'')?></p></section><?php endif; ?>
+<?php foreach(['latest'=>'آخرین خبرها','articles'=>'مقالات','reports'=>'گزارش‌ها','events'=>'رویدادها'] as $key=>$label): ?><section class="portal-section"><div class="section-heading"><h2><?=e($label)?></h2><a href="<?=e(url($key==='articles'?'/articles':'/'.$key))?>">مشاهده همه</a></div><div class="content-grid"><?php foreach(($$key??[]) as $item): ?><article class="content-card"><p class="card-meta"><?=e($item['topic_title']??'')?></p><h3><a href="<?=e(url('/'.($key==='articles'?'articles':$key).'/'.$item['slug']))?>"><?=e($item['title'])?></a></h3><p><?=e($item['summary']??'')?></p></article><?php endforeach; ?></div><?php if(empty($$key)): ?><p class="empty-state">محتوای منتشرشده‌ای وجود ندارد.</p><?php endif; ?></section><?php endforeach; ?>
+<section class="portal-section"><div class="section-heading"><h2>موضوعات</h2></div><div class="topic-pills"><?php foreach($topics as $topic): ?><a href="<?=e(url('/topics/'.$topic['slug']))?>"><?=e($topic['title'])?></a><?php endforeach; ?></div></section>
