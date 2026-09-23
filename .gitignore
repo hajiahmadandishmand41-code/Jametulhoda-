@@ -10,6 +10,7 @@ uploads/images/*
 uploads/audio/*
 uploads/video/*
 uploads/documents/*
+uploads/media/*
 !uploads/images/.gitkeep
 !uploads/audio/.gitkeep
 !uploads/video/.gitkeep

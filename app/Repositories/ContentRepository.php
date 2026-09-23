@@ -187,24 +187,66 @@ final class ContentRepository extends BaseRepository
     public function publicList(string $type, int $limit = 12, int $offset = 0): array
     {
         $this->assertType($type); [$limit,$offset]=$this->paging($limit,$offset,50);
-        return db_all(sprintf('SELECT c.*, t.title AS topic_title FROM contents c LEFT JOIN topics t ON t.id=c.topic_id WHERE c.content_type=? AND c.status=\'published\' AND c.published_at IS NOT NULL AND c.published_at<=? ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d',$limit,$offset),[$type,date('Y-m-d H:i:s')]);
+        return db_all(sprintf('SELECT c.*, t.title AS topic_title, t.slug AS topic_slug, m.disk_path AS cover_path, m.alt_text AS cover_alt FROM contents c LEFT JOIN topics t ON t.id=c.topic_id LEFT JOIN media m ON m.id=c.cover_media_id WHERE c.content_type=? AND c.status=\'published\' AND c.published_at IS NOT NULL AND c.published_at<=? ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d',$limit,$offset),[$type,date('Y-m-d H:i:s')]);
+    }
+
+    /**
+     * One published content item by type + slug, with its topic and cover
+     * media joined in. This is the public detail read.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findPublishedDetail(string $type, string $slug): ?array
+    {
+        $this->assertType($type);
+
+        return db_one(
+            'SELECT c.*, t.title AS topic_title, t.slug AS topic_slug,
+                    m.disk_path AS cover_path, m.alt_text AS cover_alt, m.mime_type AS cover_mime
+             FROM contents c
+             LEFT JOIN topics t ON t.id = c.topic_id
+             LEFT JOIN media m ON m.id = c.cover_media_id
+             WHERE c.content_type = ? AND c.slug = ?
+               AND c.status = \'published\'
+               AND c.published_at IS NOT NULL
+               AND c.published_at <= ?
+             LIMIT 1',
+            [$type, $slug, date('Y-m-d H:i:s')]
+        );
     }
     public function publicCount(?string $type = null, ?int $topicId = null, string $query = ''): int
     {
         $where=["c.status='published'",'c.published_at IS NOT NULL','c.published_at<=?']; $params=[date('Y-m-d H:i:s')];
         if($type!==null){$this->assertType($type);$where[]='c.content_type=?';$params[]=$type;}
         if($topicId!==null){$where[]='c.topic_id=?';$params[]=$topicId;}
-        if($query!==''){$where[]='(c.title LIKE ? OR c.body LIKE ? OR t.title LIKE ?)';$q='%'.$query.'%';array_push($params,$q,$q,$q);}
+        if($query!==''){$where[]="(c.title LIKE ? ESCAPE '=' OR c.summary LIKE ? ESCAPE '=' OR c.body LIKE ? ESCAPE '=' OR t.title LIKE ? ESCAPE '=')";$q='%'.$this->escapeLike($query).'%';array_push($params,$q,$q,$q,$q);}
         return (int)db_value('SELECT COUNT(*) FROM contents c LEFT JOIN topics t ON t.id=c.topic_id WHERE '.implode(' AND ',$where),$params,0);
     }
     public function publicSearch(string $query, int $limit=12, int $offset=0): array
     {
-        [$limit,$offset]=$this->paging($limit,$offset,50);$q='%'.$query.'%';
-        return db_all(sprintf("SELECT c.*,t.title AS topic_title FROM contents c LEFT JOIN topics t ON t.id=c.topic_id WHERE c.status='published' AND c.published_at IS NOT NULL AND c.published_at<=? AND (c.title LIKE ? OR c.body LIKE ? OR t.title LIKE ?) ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d",$limit,$offset),[date('Y-m-d H:i:s'),$q,$q,$q]);
+        [$limit,$offset]=$this->paging($limit,$offset,50);$q='%'.$this->escapeLike($query).'%';
+        return db_all(sprintf("SELECT c.*,t.title AS topic_title,t.slug AS topic_slug,m.disk_path AS cover_path,m.alt_text AS cover_alt FROM contents c LEFT JOIN topics t ON t.id=c.topic_id LEFT JOIN media m ON m.id=c.cover_media_id WHERE c.status='published' AND c.published_at IS NOT NULL AND c.published_at<=? AND (c.title LIKE ? ESCAPE '=' OR c.summary LIKE ? ESCAPE '=' OR c.body LIKE ? ESCAPE '=' OR t.title LIKE ? ESCAPE '=') ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d",$limit,$offset),[date('Y-m-d H:i:s'),$q,$q,$q,$q]);
     }
     public function publicByTopic(int $topicId,int $limit=12,int $offset=0): array
     {
-        [$limit,$offset]=$this->paging($limit,$offset,50); return db_all(sprintf("SELECT c.*,t.title AS topic_title FROM contents c JOIN topics t ON t.id=c.topic_id WHERE c.topic_id=? AND c.status='published' AND c.published_at IS NOT NULL AND c.published_at<=? ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d",$limit,$offset),[$topicId,date('Y-m-d H:i:s')]);
+        [$limit,$offset]=$this->paging($limit,$offset,50); return db_all(sprintf("SELECT c.*,t.title AS topic_title,t.slug AS topic_slug,m.disk_path AS cover_path,m.alt_text AS cover_alt FROM contents c JOIN topics t ON t.id=c.topic_id LEFT JOIN media m ON m.id=c.cover_media_id WHERE c.topic_id=? AND c.status='published' AND c.published_at IS NOT NULL AND c.published_at<=? ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d",$limit,$offset),[$topicId,date('Y-m-d H:i:s')]);
+    }
+    /** Published rows of one topic filtered by content type. */
+    public function publicByTopicAndType(int $topicId,string $type,int $limit=12,int $offset=0): array
+    {
+        $this->assertType($type);[$limit,$offset]=$this->paging($limit,$offset,50); return db_all(sprintf("SELECT c.*,t.title AS topic_title,t.slug AS topic_slug,m.disk_path AS cover_path,m.alt_text AS cover_alt FROM contents c JOIN topics t ON t.id=c.topic_id LEFT JOIN media m ON m.id=c.cover_media_id WHERE c.topic_id=? AND c.content_type=? AND c.status='published' AND c.published_at IS NOT NULL AND c.published_at<=? ORDER BY c.published_at DESC,c.id DESC LIMIT %d OFFSET %d",$limit,$offset),[$topicId,$type,date('Y-m-d H:i:s')]);
+    }
+    /**
+     * Escape LIKE wildcards so a user query is matched literally.
+     *
+     * Uses '=' as the escape character (declared with ESCAPE '=' in every
+     * query), which is portable across MySQL/MariaDB and the SQLite test
+     * backend — unlike a backslash, which SQLite does not treat specially
+     * inside string literals. The escape char itself is escaped first.
+     */
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['=', '%', '_'], ['==', '=%', '=_'], $value);
     }
 
     /** Admin registry query: all content with safe, whitelisted filters. */
@@ -377,9 +419,13 @@ final class ContentRepository extends BaseRepository
 
         return db_all(
             sprintf(
-                'SELECT c.*, r.`sort_order` AS `relation_order`
+                'SELECT c.*, r.`sort_order` AS `relation_order`,
+                        t.`title` AS `topic_title`, t.`slug` AS `topic_slug`,
+                        m.`disk_path` AS `cover_path`, m.`alt_text` AS `cover_alt`
                  FROM `content_relations` r
                  JOIN `contents` c ON c.`id` = r.`related_content_id`
+                 LEFT JOIN `topics` t ON t.`id` = c.`topic_id`
+                 LEFT JOIN `media` m ON m.`id` = c.`cover_media_id`
                  WHERE r.`content_id` = ?
                    AND c.`status` = \'published\'
                    AND c.`published_at` IS NOT NULL

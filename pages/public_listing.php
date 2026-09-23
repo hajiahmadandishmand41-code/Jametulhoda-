@@ -1,1 +1,22 @@
-<?php $labels=['news'=>'خبرها','article'=>'مقالات','report'=>'گزارش‌ها','event'=>'رویدادها']; ?><section class="public-heading"><p class="eyebrow"><?=e($labels[$type]??'محتوا')?></p><h1><?=e($heading)?></h1></section><div class="content-grid"><?php foreach($items as $item): ?><article class="content-card"><p class="card-meta"><?=e($item['topic_title']??'')?></p><h2><a href="<?=e(url('/'.$type.'/'.$item['slug']))?>"><?=e($item['title'])?></a></h2><p><?=e($item['summary']??mb_substr(strip_tags((string)($item['body']??'')),0,180))?></p><time datetime="<?=e($item['published_at'])?>"><?=e($item['published_at'])?></time></article><?php endforeach; ?></div><?php if(!$items): ?><p class="empty-state">محتوای منتشرشده‌ای وجود ندارد.</p><?php endif; ?><?php if($pages>1): ?><nav class="pagination" aria-label="صفحه‌بندی"><?php for($i=1;$i<=$pages;$i++): ?><a class="<?=$i===$page?'current':''?>" href="<?=e(url($path.'?page='.$i))?>"><?=e((string)$i)?></a><?php endfor; ?></nav><?php endif; ?>
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Public listing page (news / articles / reports / events) — Phase 5.
+ *
+ * @var string                    $heading
+ * @var string                    $intro
+ * @var string                    $type    internal content type
+ * @var list<array<string,mixed>> $items
+ * @var int                       $page
+ * @var int                       $pages
+ * @var int                       $total
+ * @var string                    $path    listing base path, e.g. /news
+ */
+
+$intro = $intro ?? '';
+$total = (int) ($total ?? count($items));
+$page = (int) ($page ?? 1);
+$pages = (int) ($pages ?? 1);
+require __DIR__ . '/../views/partials/list_body.php';
