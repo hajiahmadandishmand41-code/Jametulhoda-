@@ -72,17 +72,7 @@ set_exception_handler(static function (Throwable $e): void {
  | Resolve the request path
  * ------------------------------------------------------------------------- */
 $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
-$path = parse_url($uri, PHP_URL_PATH) ?? '/';
-$path = rawurldecode((string) $path);
-
-// Normalize: collapse duplicate slashes, strip the trailing slash (root keeps '/')
-$path = '/' . trim((string) preg_replace('#/+#', '/', $path), '/');
-
-// The front controller addressed directly is the home route
-// (on Apache, /index.php is served as a real file and behaves the same)
-if ($path === '/index.php') {
-    $path = '/';
-}
+$path = normalize_request_path($uri);
 
 /* ---------------------------------------------------------------------------
  | Static files

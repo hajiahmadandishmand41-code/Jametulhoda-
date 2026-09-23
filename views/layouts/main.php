@@ -26,7 +26,7 @@ $pageTitle = (isset($title) && (string) $title !== '') ? $title . ' | ' . $appNa
 $description = (string) ($metaDescription ?? Config::get('app.description'));
 $authenticated = function_exists('isAuthenticated') && isAuthenticated();
 $logoutCsrfField = $authenticated && function_exists('csrf_field') ? csrf_field() : '';
-$canonical = url(parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+$canonical = url(current_path());
 $ogType = (string) ($ogType ?? 'website');
 $ogImage = isset($ogImage) && (string) $ogImage !== '' ? (string) $ogImage : '';
 $noindex = !empty($noindex);

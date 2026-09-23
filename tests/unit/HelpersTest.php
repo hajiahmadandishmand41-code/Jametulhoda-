@@ -41,6 +41,19 @@ final class HelpersTest extends TestCase
         $this->assertSame('/assets/js/main.js', asset('/js/main.js'));
     }
 
+    public function testNormalizeRequestPathStripsSubdirectory(): void
+    {
+        $this->assertSame('/news', normalize_request_path('/php/news', '/php'));
+        $this->assertSame('/news/my-slug', normalize_request_path('/php/news/my-slug?x=1', '/php'));
+        $this->assertSame('/', normalize_request_path('/php', '/php'));
+    }
+
+    public function testNormalizeRequestPathKeepsRootInstallRootRelative(): void
+    {
+        $this->assertSame('/news', normalize_request_path('/news'));
+        $this->assertSame('/', normalize_request_path('/index.php'));
+    }
+
     public function testViewThrowsForUnknownPage(): void
     {
         try {
