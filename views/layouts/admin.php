@@ -18,6 +18,7 @@ $navigation = [
     ['label' => 'پژوهش‌ها', 'icon' => '◎', 'href' => '/admin/research'],
     ['label' => 'رسانه‌ها', 'icon' => '◉', 'href' => '/admin/media'],
     ['label' => 'موضوعات', 'icon' => '◆', 'href' => '/admin/topics'],
+    ['label' => 'تنظیمات سایت', 'icon' => '⚙', 'href' => '/admin/settings', 'role' => 'admin'],
     ['label' => 'کاربران', 'icon' => '♙', 'href' => '/admin/users', 'role' => 'admin'],
 ];
 $roleLabels = ['admin' => 'مدیر', 'editor' => 'ویرایشگر', 'user' => 'کاربر'];
@@ -29,8 +30,8 @@ $userRole = (string) ($user['role'] ?? 'user');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title><?= e($pageTitle) ?> | <?= e((string) Config::get('app.name')) ?></title>
-    <link rel="icon" type="image/svg+xml" href="<?= e(asset('img/favicon.svg')) ?>">
+    <title><?= e($pageTitle) ?> | <?= e((string) site_setting('name')) ?></title>
+    <link rel="icon" href="<?= e(site_image('favicon')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/main.css')) ?>">
 </head>
 <body class="admin-body no-js">
@@ -38,8 +39,8 @@ $userRole = (string) ($user['role'] ?? 'user');
 <div class="admin-shell">
     <aside class="admin-sidebar" id="admin-sidebar" aria-label="ناوبری پنل مدیریت">
         <div class="admin-brand">
-            <img class="admin-brand-logo" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="38" height="38" aria-hidden="true">
-            <span><?= e((string) Config::get('app.name')) ?></span>
+            <img class="admin-brand-logo" src="<?= e(site_image('logo')) ?>" alt="" width="38" height="38" aria-hidden="true">
+            <span><?= e((string) site_setting('name')) ?></span>
         </div>
         <p class="admin-section-label">مدیریت محتوا</p>
         <nav class="admin-nav">

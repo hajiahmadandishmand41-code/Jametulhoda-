@@ -126,6 +126,33 @@
             desktopQuery: '(min-width: 861px)'
         });
 
+        document.querySelectorAll('[data-branding-preview]').forEach(function (input) {
+            var image = document.getElementById(input.dataset.brandingPreview);
+            var status = document.getElementById(input.dataset.brandingStatus);
+            var original = image.src;
+            var originalStatus = status.textContent;
+            input.addEventListener('change', function () {
+                var file = input.files && input.files[0];
+                image.src = original;
+                status.textContent = originalStatus;
+                input.setCustomValidity('');
+                if (!file) return;
+                if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024) {
+                    input.setCustomValidity('تصویر PNG، JPG یا WEBP تا ۲ مگابایت انتخاب کنید.');
+                    input.reportValidity();
+                    status.textContent = 'فایل انتخابی مجاز نیست.';
+                    return;
+                }
+                var reader = new FileReader();
+                reader.onload = function () {
+                    if (input.files[0] !== file) return;
+                    image.src = reader.result;
+                    status.textContent = 'پیش‌نمایش فایل انتخابی؛ هنوز ذخیره نشده است.';
+                };
+                reader.readAsDataURL(file); // data: images are permitted by existing CSP
+            });
+        });
+
         var contentType = document.querySelector('select[name="content_type"]');
         var eventFields = document.querySelector('.content-extra-event');
         var reportFields = document.querySelector('.content-extra-report');

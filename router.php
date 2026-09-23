@@ -46,7 +46,7 @@ function define_routes(Router $router): void
         }
         view('home', [
             'title' => '',
-            'metaDescription' => (string) Config::get('app.description'),
+            'metaDescription' => (string) site_setting('description'),
             'featured' => $news[0] ?? null,
             'secondary' => array_slice($news, 1, 4),
             'latest' => array_slice($news, 1, 6),
@@ -667,6 +667,36 @@ function define_routes(Router $router): void
 
         return requireRole('admin');
     };
+    $router->get('/admin/settings', static function () use ($superAdminOnly): void {
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        admin_view('settings', ['title' => 'تنظیمات سایت', 'settings' => [
+            'name' => site_setting('name'), 'description' => site_setting('description'),
+        ], 'saved' => ($_GET['saved'] ?? '') === '1', 'errors' => []]);
+    });
+
+    $router->add('POST', '/admin/settings', static function () use ($superAdminOnly): void {
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+            admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست یا حجم درخواست بیش از حد مجاز هاست است. صفحه را تازه‌سازی کنید.', '/admin/settings');
+            return;
+        }
+        try {
+            SiteSettings::save($_POST, $_FILES);
+            redirect('/admin/settings?saved=1', 303);
+        } catch (InvalidArgumentException $e) {
+            http_response_code(422);
+            $errors = [$e->getMessage()];
+        } catch (Throwable $e) {
+            log_error('Site settings save failed: ' . get_class($e));
+            http_response_code(503);
+            $errors = ['ذخیره انجام نشد. اتصال دیتابیس، اجرای migration تنظیمات و دسترسی نوشتن uploads/site را بررسی کنید.'];
+        }
+        admin_view('settings', ['title' => 'تنظیمات سایت', 'settings' => [
+            'name' => is_string($_POST['name'] ?? null) ? $_POST['name'] : site_setting('name'),
+            'description' => is_string($_POST['description'] ?? null) ? $_POST['description'] : site_setting('description'),
+        ], 'saved' => false, 'errors' => $errors]);
+    });
+
     foreach (['news'=>'خبرها','article'=>'مقالات','report'=>'گزارش‌ها','event'=>'رویدادها'] as $contentAlias => $contentAliasLabel) {
         // Correct plural section path per alias (bug fix: news used to
         // register the broken URL /admin/newss).
