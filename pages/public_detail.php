@@ -26,11 +26,14 @@ $media = $media ?? [];
 $gallery = $gallery ?? [];
 $locked = (bool) ($locked ?? false);
 $detailAuthor = trim((string) ($item['author'] ?? ''));
-$cover = media_url((string) ($item['cover_path'] ?? ''));
+$coverPath = (string) ($item['cover_path'] ?? '');
+$cover = media_file_exists($coverPath) ? media_url($coverPath) : '';
 
 // ---- SEO: Open Graph image + JSON-LD structured data (consumed by layout) ----
 if ($cover !== '') {
-    $ogImage = url(ltrim(parse_url($cover, PHP_URL_PATH) ?? '', '/'));
+    // media_url() already includes the configured subdirectory prefix. Do not
+    // pass its path through url() a second time on shared-host deployments.
+    $ogImage = $cover;
 }
 $ogType = in_array($type, ['article', 'research'], true) ? 'article' : 'website';
 
@@ -170,7 +173,8 @@ foreach ($media as $m) {
         <section class="media-block" aria-label="ویدیو">
             <h2 class="section-title">ویدیو</h2>
             <?php foreach ($videoItems as $m):
-                $src = media_url((string) ($m['disk_path'] ?? ''));
+                $mediaPath = (string) ($m['disk_path'] ?? '');
+                $src = media_file_exists($mediaPath) ? media_url($mediaPath) : '';
                 if ($src === '') { continue; } ?>
                 <figure class="media-figure">
                     <video controls preload="none" playsinline<?= $cover !== '' ? ' poster="' . e($cover) . '"' : '' ?>>
@@ -187,7 +191,8 @@ foreach ($media as $m) {
         <section class="media-block" aria-label="صوت">
             <h2 class="section-title">صوت</h2>
             <?php foreach ($audioItems as $m):
-                $src = media_url((string) ($m['disk_path'] ?? ''));
+                $mediaPath = (string) ($m['disk_path'] ?? '');
+                $src = media_file_exists($mediaPath) ? media_url($mediaPath) : '';
                 if ($src === '') { continue; } ?>
                 <figure class="media-figure">
                     <?php if (!empty($m['title'])): ?><figcaption><?= e((string) $m['title']) ?></figcaption><?php endif; ?>
@@ -205,7 +210,8 @@ foreach ($media as $m) {
             <h2 class="section-title">گالری تصاویر</h2>
             <div class="gallery-grid">
                 <?php foreach ($gallery as $g):
-                    $src = media_url((string) ($g['disk_path'] ?? ''));
+                    $mediaPath = (string) ($g['disk_path'] ?? '');
+                    $src = media_file_exists($mediaPath) ? media_url($mediaPath) : '';
                     if ($src === '') { continue; } ?>
                     <figure class="gallery-item">
                         <img src="<?= e($src) ?>" alt="<?= e((string) ($g['alt_text'] ?? $g['caption'] ?? $item['title'])) ?>" loading="lazy" width="400" height="300">
@@ -221,7 +227,8 @@ foreach ($media as $m) {
             <h2 class="section-title">پیوست‌ها</h2>
             <ul class="attachment-list">
                 <?php foreach ($documentItems as $m):
-                    $src = media_url((string) ($m['disk_path'] ?? ''));
+                    $mediaPath = (string) ($m['disk_path'] ?? '');
+                $src = media_file_exists($mediaPath) ? media_url($mediaPath) : '';
                     if ($src === '') { continue; } ?>
                     <li><a href="<?= e($src) ?>" rel="nofollow noopener" target="_blank"><?= e((string) ($m['title'] ?? $m['original_name'] ?? 'پیوست')) ?></a></li>
                 <?php endforeach; ?>

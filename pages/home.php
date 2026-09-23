@@ -30,7 +30,8 @@ $hasAny = $featured || $secondary || $latest || !empty($articles) || !empty($rep
 
 /** Render one content card. */
 $card = static function (array $item, string $type, bool $withImage = true): void {
-    $cover = media_url((string) ($item['cover_path'] ?? ''));
+    $coverPath = (string) ($item['cover_path'] ?? '');
+$cover = media_file_exists($coverPath) ? media_url($coverPath) : '';
     ?>
     <article class="content-card">
         <?php if ($withImage && $cover !== ''): ?>
@@ -67,7 +68,8 @@ $card = static function (array $item, string $type, bool $withImage = true): voi
     <?php if ($featured): ?>
     <section class="lead-block" aria-label="خبر اصلی">
         <article class="lead-story">
-            <?php $leadCover = media_url((string) ($featured['cover_path'] ?? '')); ?>
+            <?php $leadCoverPath = (string) ($featured['cover_path'] ?? '');
+            $leadCover = media_file_exists($leadCoverPath) ? media_url($leadCoverPath) : ''; ?>
             <?php if ($leadCover !== ''): ?>
                 <a class="lead-media" href="<?= e(content_url('news', (string) $featured['slug'])) ?>">
                     <img src="<?= e($leadCover) ?>" alt="<?= e((string) ($featured['cover_alt'] ?? $featured['title'])) ?>" width="800" height="450">
@@ -142,7 +144,8 @@ $card = static function (array $item, string $type, bool $withImage = true): voi
             </div>
             <div class="home-media-grid">
                 <?php foreach ($mediaItems as $media): ?>
-                    <?php $src = media_url((string) ($media['disk_path'] ?? '')); ?>
+                    <?php $mediaPath = (string) ($media['disk_path'] ?? '');
+                    $src = media_file_exists($mediaPath) ? media_url($mediaPath) : ''; ?>
                     <article class="home-media-card">
                         <span class="media-type-badge"><?= e((string) (($media['media_type'] ?? '') === 'video' ? 'ویدیو' : 'صوت')) ?></span>
                         <h3><?= e((string) ($media['title'] ?? $media['original_name'] ?? 'رسانه')) ?></h3>

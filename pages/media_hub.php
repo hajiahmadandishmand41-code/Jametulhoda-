@@ -42,7 +42,8 @@ $typeLabels = ['video' => 'ویدیو', 'audio' => 'صوت'];
 <?php else: ?>
     <div class="media-grid">
         <?php foreach ($items as $m):
-            $src = media_url((string) ($m['disk_path'] ?? ''));
+            $mediaPath = (string) ($m['disk_path'] ?? '');
+                $src = media_file_exists($mediaPath) ? media_url($mediaPath) : '';
             if ($src === '') { continue; }
             $mediaType = (string) ($m['media_type'] ?? '');
             $mediaId = (int) $m['id'];
