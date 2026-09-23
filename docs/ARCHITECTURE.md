@@ -1,4 +1,4 @@
-# معماری — Phase 1 (هسته) + Phase 2 (داده) + Phase 3 (احراز هویت)
+# معماری — Phase 1 (هسته) + Phase 2 (داده) + Phase 3 (احراز هویت) + Phase 6 (دانش و رسانه)
 
 سایت فارسی، RTL، بدون فریمورک؛ با PHP خام برای Shared Hosting / InfinityFree.
 
@@ -76,6 +76,27 @@ Browser
   `hash_equals()` انجام می‌شود و توکن پس از login/موارد لازم rotate می‌شود.
 - `LoginRateLimiter` با جدول aggregate `login_attempts`، تلاش‌های ناموفق یک
   email/IP را برای پنجره‌ی محدود نگه می‌دارد و به سرویس بیرونی وابسته نیست.
+
+## محتوای دانش و چندرسانه‌ای — Phase 6
+
+کتاب‌ها، درس‌ها و پژوهش‌ها روی همان ستون فقرات `contents` سوار می‌شوند:
+هر نوع، جدول 1:1 الحاقی خودش را دارد (`books`/`research`/`lessons`) و
+`BookRepository`/`ResearchRepository`/`LessonRepository` عملیات خواندن/
+نوشتن ترکیبی (contents + ردیف الحاقی) را کپسوله می‌کنند. قواعد:
+
+- هیچ SQL در views/route handlers نیست؛ مسیرهای عمومی فقط از
+  `publicList/publicCount/findPublishedBySlug` مخازن استفاده می‌کنند و
+  فیلتر «فقط منتشرشده» در SQL اعمال می‌شود.
+- درس قفل‌شده (`requires_login`) در route guard می‌شود: برای مهمان
+  `body = null` و `media = []` قبل از render تنظف می‌شود؛ view فقط
+  چیزی که دریافت کرده را می‌بیند.
+- `/media` با ۳ کوئری کار می‌کند (صفحه + شمارش + محتوای مرتبطِ دسته‌ای) و
+  رسانه‌های درس‌های قفل‌شده را بر اساس وضعیت ورود مخاطب فیلتر می‌کند.
+- فرم‌های مدیریتی سه بخش با پرچم‌های `$section` (نویسنده/ترتیب/قفل) از یک
+  view مشترک (`pages/admin/knowledge_form.php`) ساخته می‌شوند؛ اعتبارسنجی
+  POST در یک closure مشترک (`$validateKnowledgePost`) متمرکز است.
+- ارجاع‌های نوع→بخش (URLها و برچسب‌های فارسی) فقط در
+  `content_url()/listing_url()/content_type_label()` نگه‌داری می‌شوند.
 
 ## پنل مدیریت — Phase 4.1
 

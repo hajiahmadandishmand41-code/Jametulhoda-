@@ -135,10 +135,13 @@ if (!function_exists('content_url')) {
     function content_url(string $type, string $slug): string
     {
         $map = [
-            'article' => 'articles',
-            'news'    => 'news',
-            'report'  => 'reports',
-            'event'   => 'events',
+            'article'  => 'articles',
+            'news'     => 'news',
+            'report'   => 'reports',
+            'event'    => 'events',
+            'book'     => 'books',
+            'lesson'   => 'lessons',
+            'research' => 'research',
         ];
         $segment = $map[$type] ?? 'news';
 
@@ -153,13 +156,57 @@ if (!function_exists('listing_url')) {
     function listing_url(string $type): string
     {
         $map = [
-            'article' => '/articles',
-            'news'    => '/news',
-            'report'  => '/reports',
-            'event'   => '/events',
+            'article'  => '/articles',
+            'news'     => '/news',
+            'report'   => '/reports',
+            'event'    => '/events',
+            'book'     => '/books',
+            'lesson'   => '/lessons',
+            'research' => '/research',
         ];
 
         return url($map[$type] ?? '/news');
+    }
+}
+
+if (!function_exists('content_type_label')) {
+    /**
+     * Persian display label for any internal content type (Phase 6 keeps
+     * the label map in one place instead of repeating it in every view).
+     */
+    function content_type_label(string $type): string
+    {
+        $map = [
+            'article'  => 'مقاله',
+            'news'     => 'خبر',
+            'report'   => 'گزارش',
+            'event'    => 'رویداد',
+            'book'     => 'کتاب',
+            'lesson'   => 'درس',
+            'research' => 'پژوهش',
+        ];
+
+        return $map[$type] ?? $type;
+    }
+}
+
+if (!function_exists('content_type_plural_label')) {
+    /**
+     * Persian plural label for a content type (listings, admin tables).
+     */
+    function content_type_plural_label(string $type): string
+    {
+        $map = [
+            'article'  => 'مقالات',
+            'news'     => 'خبرها',
+            'report'   => 'گزارش‌ها',
+            'event'    => 'رویدادها',
+            'book'     => 'کتاب‌ها',
+            'lesson'   => 'درس‌ها',
+            'research' => 'پژوهش‌ها',
+        ];
+
+        return $map[$type] ?? $type;
     }
 }
 

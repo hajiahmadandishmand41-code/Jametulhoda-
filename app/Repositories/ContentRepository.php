@@ -19,8 +19,14 @@ final class ContentRepository extends BaseRepository
 {
     protected string $table = 'contents';
 
-    /** Content types accepted by the schema's ENUM. */
-    public const TYPES = ['article', 'news', 'event', 'report'];
+    /**
+     * Content types accepted by the schema's ENUM.
+     * Phase 6 adds the knowledge types: book, lesson, research — they share
+     * this same contents spine (topics, media, relations, search); their
+     * type-specific columns live in the 1:1 extension tables owned by
+     * BookRepository / LessonRepository / ResearchRepository.
+     */
+    public const TYPES = ['article', 'news', 'event', 'report', 'book', 'lesson', 'research'];
 
     /** Publication states accepted by the schema's ENUM. */
     public const STATUSES = ['draft', 'published', 'archived'];

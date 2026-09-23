@@ -24,20 +24,23 @@ $type = (string) ($type ?? ($item['content_type'] ?? 'news'));
 $related = $related ?? [];
 $media = $media ?? [];
 $gallery = $gallery ?? [];
-
-$typeLabels = ['news' => 'خبر', 'article' => 'مقاله', 'report' => 'گزارش', 'event' => 'رویداد'];
+$locked = (bool) ($locked ?? false);
+$detailAuthor = trim((string) ($item['author'] ?? ''));
 $cover = media_url((string) ($item['cover_path'] ?? ''));
 
 // ---- SEO: Open Graph image + JSON-LD structured data (consumed by layout) ----
 if ($cover !== '') {
     $ogImage = url(ltrim(parse_url($cover, PHP_URL_PATH) ?? '', '/'));
 }
-$ogType = $type === 'article' ? 'article' : 'website';
+$ogType = in_array($type, ['article', 'research'], true) ? 'article' : 'website';
 
 $schemaType = match ($type) {
     'article', 'report' => 'Article',
     'news' => 'NewsArticle',
     'event' => 'Event',
+    'book' => 'Book',
+    'lesson' => 'LearningResource',
+    'research' => 'ScholarlyArticle',
     default => 'Article',
 };
 $jsonLd = [
@@ -47,6 +50,9 @@ $jsonLd = [
     'inLanguage' => 'fa',
     'mainEntityOfPage' => url(current_path()),
 ];
+if ($detailAuthor !== '') {
+    $jsonLd['author'] = ['@type' => 'Person', 'name' => $detailAuthor];
+}
 if (!empty($item['summary'])) {
     $jsonLd['description'] = excerpt((string) $item['summary'], 200);
 }
@@ -87,16 +93,16 @@ foreach ($media as $m) {
     }
 }
 ?>
-<article class="public-detail">
+<article class="public-detail<?= $type === 'research' ? ' is-reading' : '' ?>">
     <nav class="breadcrumbs" aria-label="مسیر">
         <a href="<?= e(url('/')) ?>">خانه</a>
         <span aria-hidden="true">›</span>
-        <a href="<?= e(listing_url($type)) ?>"><?= e(['news' => 'خبرها', 'article' => 'مقالات', 'report' => 'گزارش‌ها', 'event' => 'رویدادها'][$type] ?? 'محتوا') ?></a>
+        <a href="<?= e(listing_url($type)) ?>"><?= e(content_type_plural_label($type)) ?></a>
     </nav>
 
     <header class="detail-head">
         <p class="eyebrow">
-            <span><?= e($typeLabels[$type] ?? '') ?></span>
+            <span><?= e(content_type_label($type)) ?></span>
             <?php if (!empty($item['topic_title'])): ?>
                 · <a href="<?= e(url('/topics/' . rawurlencode((string) ($item['topic_slug'] ?? '')))) ?>"><?= e((string) $item['topic_title']) ?></a>
             <?php endif; ?>
@@ -104,6 +110,9 @@ foreach ($media as $m) {
         <h1 class="detail-title"><?= e((string) $item['title']) ?></h1>
 
         <div class="detail-meta">
+            <?php if ($detailAuthor !== ''): ?>
+                <span class="detail-author"><?= e($detailAuthor) ?></span>
+            <?php endif; ?>
             <?php if (!empty($item['published_at'])): ?>
                 <time datetime="<?= e((string) $item['published_at']) ?>"><?= e(format_date_fa((string) $item['published_at'])) ?></time>
             <?php endif; ?>
@@ -145,11 +154,19 @@ foreach ($media as $m) {
         <p class="detail-lead"><?= e((string) $item['summary']) ?></p>
     <?php endif; ?>
 
+    <?php if ($locked): ?>
+        <section class="lock-panel" aria-label="دسترسی محدود">
+            <h2>این درس برای اعضای واردشده باز است</h2>
+            <p>مشاهدهٔ متن و رسانه‌های این درس نیازمند ورود به حساب کاربری است. خلاصهٔ درس بالا برای همه آزاد است.</p>
+            <a class="lock-action" href="<?= e(url('/login?redirect=' . rawurlencode(current_path()))) ?>">ورود به حساب کاربری</a>
+        </section>
+    <?php else: ?>
     <div class="detail-body">
         <?= nl2br(e((string) ($item['body'] ?? ''))) ?>
     </div>
+    <?php endif; ?>
 
-    <?php if ($videoItems !== []): ?>
+    <?php if ($videoItems !== [] && !$locked): ?>
         <section class="media-block" aria-label="ویدیو">
             <h2 class="section-title">ویدیو</h2>
             <?php foreach ($videoItems as $m):
@@ -166,7 +183,7 @@ foreach ($media as $m) {
         </section>
     <?php endif; ?>
 
-    <?php if ($audioItems !== []): ?>
+    <?php if ($audioItems !== [] && !$locked): ?>
         <section class="media-block" aria-label="صوت">
             <h2 class="section-title">صوت</h2>
             <?php foreach ($audioItems as $m):
@@ -199,7 +216,7 @@ foreach ($media as $m) {
         </section>
     <?php endif; ?>
 
-    <?php if ($documentItems !== []): ?>
+    <?php if ($documentItems !== [] && !$locked): ?>
         <section class="media-block" aria-label="پیوست‌ها">
             <h2 class="section-title">پیوست‌ها</h2>
             <ul class="attachment-list">

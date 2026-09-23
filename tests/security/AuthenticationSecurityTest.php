@@ -95,7 +95,10 @@ final class AuthenticationSecurityTest extends TestCase
         $router->dispatch('GET', '/logout');
         ob_end_clean();
 
-        $this->assertSame(404, http_response_code());
+        // /logout exists for POST only. The Router answers a known path with
+        // the wrong method 405 Method Not Allowed (its documented Phase 1
+        // behaviour) — either way GET must NOT be routed to logout logic.
+        $this->assertSame(405, http_response_code());
         http_response_code(200);
     }
 

@@ -13,6 +13,28 @@ declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
 
+// Test double for redirect(): the production helper sends the header and
+// exits, which would terminate the whole (single-process) test runner.
+// functions.php installs its real implementation only when this name is
+// still free, so defining the throwing double first gives every route a
+// precise, catchable redirect signal under test — production is unchanged.
+if (!function_exists('redirect')) {
+    final class RedirectException extends RuntimeException
+    {
+        public function __construct(
+            public readonly string $path,
+            public readonly int $status,
+        ) {
+            parent::__construct(sprintf('redirect(%d) %s', $status, $path));
+        }
+    }
+
+    function redirect(string $path, int $status = 302): never
+    {
+        throw new RedirectException($path, $status);
+    }
+}
+
 require dirname(__DIR__) . '/app/Helpers/functions.php';
 require dirname(__DIR__) . '/app/Helpers/admin.php';
 require dirname(__DIR__) . '/config/config.php';
@@ -31,10 +53,12 @@ require dirname(__DIR__) . '/app/Middleware/AuthGuards.php';
 require dirname(__DIR__) . '/router.php';
 
 // --- Phase 2: schema helper + data layer ---
+// (ContentRepository, TopicRepository and MediaRepository are already
+// required above — re-requiring them here would redeclare the classes.)
 require dirname(__DIR__) . '/app/Helpers/schema.php';
-require dirname(__DIR__) . '/app/Repositories/ContentRepository.php';
-require dirname(__DIR__) . '/app/Repositories/TopicRepository.php';
-require dirname(__DIR__) . '/app/Repositories/MediaRepository.php';
 require dirname(__DIR__) . '/app/Repositories/ReportRepository.php';
 require dirname(__DIR__) . '/app/Repositories/EventRepository.php';
+require dirname(__DIR__) . '/app/Repositories/BookRepository.php';
+require dirname(__DIR__) . '/app/Repositories/LessonRepository.php';
+require dirname(__DIR__) . '/app/Repositories/ResearchRepository.php';
 require dirname(__DIR__) . '/tests/lib/SchemaSandbox.php';

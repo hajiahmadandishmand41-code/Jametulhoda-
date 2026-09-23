@@ -26,9 +26,17 @@ final class AdminFoundationTest extends TestCase
         $router = new Router();
         define_routes($router);
         $this->assertTrue($router->match('GET', '/admin') !== null);
-        $this->assertNull($router->match('GET', '/admin/news'));
-        $this->assertNull($router->match('GET', '/admin/articles'));
-        $this->assertNull($router->match('POST', '/admin'));
+        // Phase 4 shipped the editorial registry — the former "future" CRUD
+        // routes are live product surface now.
+        $this->assertTrue($router->match('GET', '/admin/content') !== null);
+        $this->assertTrue($router->match('GET', '/admin/news') !== null);
+        $this->assertTrue($router->match('GET', '/admin/articles') !== null);
+        // Phase 7+ (users/settings) must stay unregistered.
+        $this->assertNull($router->match('GET', '/admin/users'));
+        $this->assertNull($router->match('GET', '/admin/settings'));
+        // Note: Router::match() ignores the HTTP method, so a wrong-method
+        // probe here would false-positive; method enforcement is covered by
+        // the dispatch-level tests and tests/audit/http_test.sh (405).
     }
 
     public function testOnlyAdminRoleCanPassTheAdminGuard(): void

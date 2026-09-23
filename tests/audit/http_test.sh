@@ -74,9 +74,21 @@ check "GET /logs/error.log"         404 "$B/logs/error.log"
 check "GET /database/schema.sql"    404 "$B/database/schema.sql"
 check "GET /admin/"                 302 "$B/admin/"
 check "GET /login"                  200 "$B/login" "ورود به حساب کاربری"
-check "GET /logout (must be POST)"   404 "$B/logout"
+check "GET /logout (must be POST)"   405 "$B/logout"
 check "GET /%2e%2e/config"          404 "$B/%2e%2e/config"
 check "GET /../../etc/passwd"       404 "$B/%2e%2e/%2e%2e/etc/passwd"
+
+# Phase 6 — knowledge & multimedia routes. The listings degrade to their
+# empty states when the database is unreachable (same contract as /);
+# the 404 behaviour of detail slugs needs a database and is covered by
+# the integration suites (KnowledgeRoutesTest) against the sandbox schema.
+check "GET /books"                  200 "$B/books" "کتاب‌ها"
+check "GET /lessons"                200 "$B/lessons" "درس‌ها"
+check "GET /research"               200 "$B/research" "پژوهش‌ها"
+check "GET /media"                  200 "$B/media" "مرکز رسانه"
+check "GET /media?type=video"       200 "$B/media?type=video"
+check "GET /media?type=script"      200 "$B/media?type=script"
+check "GET /sitemap.xml (knowledge)" 200 "$B/sitemap.xml" "/news"
 
 # Authentication state-changing requests must carry a CSRF token. A request
 # without one is rejected before any database lookup.

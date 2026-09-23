@@ -40,6 +40,18 @@ $expectedFiles = [
     'app/Middleware/AuthGuards.php',
     'app/Repositories/UserRepository.php',
     'pages/home.php', 'pages/404.php', 'pages/login.php',
+
+    // --- Phase 6: knowledge & multimedia platform ---
+    'app/Repositories/BookRepository.php',
+    'app/Repositories/LessonRepository.php',
+    'app/Repositories/ResearchRepository.php',
+    'pages/knowledge_listing.php', 'pages/lessons.php', 'pages/media_hub.php',
+    'pages/admin/knowledge_registry.php', 'pages/admin/knowledge_form.php',
+    'database/migrations/2026-09-23_phase6_knowledge_types.sql',
+    'tests/integration/KnowledgeContentTest.php',
+    'tests/integration/KnowledgeRoutesTest.php',
+    'tests/integration/MediaHubTest.php',
+    'tests/security/KnowledgeSecurityTest.php',
     'views/layouts/main.php',
 
     // --- Phase 5: public content surface ---
@@ -146,6 +158,8 @@ $allowedRepositories = [
     'BaseRepository.php', 'ContentRepository.php', 'TopicRepository.php',
     'MediaRepository.php', 'ReportRepository.php', 'EventRepository.php',
     'UserRepository.php',
+    // Phase 6 knowledge repositories
+    'BookRepository.php', 'LessonRepository.php', 'ResearchRepository.php',
 ];
 foreach (glob($root . '/app/Repositories/*.php') ?: [] as $repository) {
     if (!in_array(basename($repository), $allowedRepositories, true)) {
@@ -159,6 +173,8 @@ $allowedPages = [
     'home.php', '404.php', 'login.php',
     // Phase 5 public content surface
     'public_listing.php', 'public_detail.php', 'topic.php', 'search.php',
+    // Phase 6 knowledge & multimedia surface
+    'knowledge_listing.php', 'lessons.php', 'media_hub.php',
 ];
 foreach ($pages as $page) {
     if (!in_array(basename($page), $allowedPages, true)) {

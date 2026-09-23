@@ -17,7 +17,7 @@ declare(strict_types=1);
 $cardType = $cardType ?? (string) ($cardItem['content_type'] ?? 'news');
 $cover = media_url((string) ($cardItem['cover_path'] ?? ''));
 $excerptText = excerpt((string) ($cardItem['summary'] ?? $cardItem['body'] ?? ''), 140);
-$typeLabels = ['news' => 'خبر', 'article' => 'مقاله', 'report' => 'گزارش', 'event' => 'رویداد'];
+$cardAuthor = trim((string) ($cardItem['author'] ?? ''));
 ?>
 <article class="content-card">
     <?php if ($cover !== ''): ?>
@@ -27,12 +27,13 @@ $typeLabels = ['news' => 'خبر', 'article' => 'مقاله', 'report' => 'گز�
     <?php endif; ?>
     <div class="card-body">
         <p class="card-meta">
-            <span class="card-type"><?= e($typeLabels[$cardType] ?? '') ?></span>
+            <span class="card-type"><?= e(content_type_label($cardType)) ?></span>
             <?php if (!empty($cardItem['topic_title'])): ?>
                 <a href="<?= e(url('/topics/' . rawurlencode((string) ($cardItem['topic_slug'] ?? '')))) ?>"><?= e((string) $cardItem['topic_title']) ?></a>
             <?php endif; ?>
         </p>
         <h2 class="card-title"><a href="<?= e(content_url($cardType, (string) $cardItem['slug'])) ?>"><?= e((string) $cardItem['title']) ?></a></h2>
+        <?php if ($cardAuthor !== ''): ?><p class="card-author"><?= e($cardAuthor) ?></p><?php endif; ?>
         <?php if ($excerptText !== ''): ?><p class="card-excerpt"><?= e($excerptText) ?></p><?php endif; ?>
         <?php if (!empty($cardItem['published_at'])): ?>
             <time class="card-date" datetime="<?= e((string) $cardItem['published_at']) ?>"><?= e(format_date_fa((string) $cardItem['published_at'])) ?></time>

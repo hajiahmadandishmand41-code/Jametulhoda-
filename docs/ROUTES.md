@@ -1,4 +1,4 @@
-# Routeها — Phase 1 + Phase 3 + Phase 5 (سطح عمومی)
+# Routeها — Phase 1 + Phase 3 + Phase 5 + Phase 6 (سطح عمومی)
 
 ## Routeهای عمومی Phase 5
 
@@ -21,6 +21,37 @@
 > فقط محتوای `published` با `published_at <= now` در مسیرهای عمومی دیده می‌شود؛
 > `draft`/`archived` از URL عمومی قابل دسترسی نیست (فیلتر در لایهٔ SQL).
 > صفحات جستجو و ۴۰۴ با `noindex` علامت می‌خورند.
+
+## Routeهای عمومی و مدیریتی Phase 6 (کتاب‌ها، درس‌ها، پژوهش‌ها، رسانه)
+
+| Method | Path | خروجی | Status |
+|--------|------|-------|--------|
+| GET | `/books` | فهرست کتاب‌ها + جستجوی عنوان + فیلتر موضوع + pagination | 200 |
+| GET | `/books/{slug}` | جزئیات کتاب + محتوای مرتبط | 200 / 404 |
+| GET | `/lessons` | درس‌ها به ترتیب `sort_order` + فیلتر موضوع | 200 |
+| GET | `/lessons/{slug}` | جزئیات درس + ویدیو/صوت + درس‌های مرتبط | 200 / 404 |
+| GET | `/research` | فهرست پژوهش‌ها + جستجو + فیلتر موضوع | 200 |
+| GET | `/research/{slug}` | صفحهٔ مطالعهٔ پژوهش (بدنهٔ بلند) | 200 / 404 |
+| GET | `/media` | مرکز رسانه + فیلتر نوع (`?type=video|audio`) + pagination | 200 |
+| GET | `/admin/books` ، `/admin/lessons` ، `/admin/research` | فهرست مدیریتی (admin) | 200 / 302 / 403 |
+| GET | `/admin/{section}/new` | فرم ایجاد (admin) | 200 / 302 / 403 |
+| POST | `/admin/{section}/new` | ایجاد + redirect | 303 / 200 (خطا) / 403 |
+| GET | `/admin/{section}/edit/{id}` | فرم ویرایش (admin) | 200 / 302 / 403 / 404 |
+| POST | `/admin/{section}/edit/{id}` | ویرایش + redirect | 303 / 200 (خطا) / 403 / 404 |
+| POST | `/admin/{section}/delete` | حذف (cascade ردیف‌های الحاقی) | 303 / 403 / 404 |
+
+قواعد Phase 6:
+
+> - فقط ردیف‌های `published` با `published_at <= now` در مسیرهای عمومی دیده می‌شوند
+>   (فیلتر در لایهٔ SQL؛ `draft`/`archived` از URL عمومی ۴۰۴ می‌گیرند).
+> - درسی که `requires_login = 1` است برای مهمان «قفل» است: بدنه و رسانه‌ها
+>   اصلاً از سمت سرور ارسال نمی‌شوند؛ فقط خلاصه + پنل ورود نمایش داده می‌شود.
+> - `/media` رسانه‌های درس‌های قفل‌شده را از مهمان‌ها پنهان می‌کند.
+> - فهرست‌های عمومی و `/media` و `sitemap.xml` در خرابی موقت دیتابیس به
+>   حالت خالی (200) تنزل می‌کنند — مانند صفحهٔ خانه.
+> - صفحات Phase 6 از همان الگوی SEO فاز ۵ استفاده می‌کنند: title/description،
+>   canonical، Open Graph و JSON-LD (`Book`, `LearningResource`, `ScholarlyArticle`).
+> - همهٔ مسیرهای مدیریتی فقط `admin` هستند و همهٔ تغییرات توکن CSRF دارند.
 
 ## Routeهای ثبت‌شده (فقط در `router.php`)
 

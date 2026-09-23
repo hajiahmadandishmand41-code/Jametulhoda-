@@ -42,9 +42,21 @@ final class PublicSurfaceSecurityTest extends TestCase
     {
         $router = new Router();
         define_routes($router);
+
+        // Same contract as a real request: the query string never reaches the
+        // route table; it becomes $_GET (see RoutesTest::dispatch).
+        $parts = parse_url($path);
+        $routePath = (string) ($parts['path'] ?? '/');
+        $_SERVER['QUERY_STRING'] = (string) ($parts['query'] ?? '');
+        $_SERVER['REQUEST_URI'] = $path;
+        $_GET = [];
+        if ($_SERVER['QUERY_STRING'] !== '') {
+            parse_str($_SERVER['QUERY_STRING'], $_GET);
+        }
+
         http_response_code(200);
         ob_start();
-        $router->dispatch($method, $path);
+        $router->dispatch($method, $routePath);
         $body = (string) ob_get_clean();
         $code = (int) http_response_code();
         http_response_code(200);

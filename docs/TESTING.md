@@ -1,4 +1,4 @@
-# تست — Phase 1 + Phase 2 + Phase 3 + Phase 4.1
+# تست — Phase 1 + Phase 2 + Phase 3 + Phase 4 + Phase 5 + Phase 6
 
 ## اجرای همه‌ی چک‌ها
 
@@ -104,3 +104,19 @@ hash‌شده و در چک‌لیست دستی `tests/browser/README.md` برر�
 - برای ادعای کامل production: یک MySQL/MariaDB محلی مطابق `config/local.php`.
   بدون آن، اگر `pdo_sqlite` فعال باشد، تست‌های schema/data/auth روی SQLite
   in-memory اجرا می‌شوند و باید در گزارش به‌عنوان SQLite تفکیک شوند.
+
+## Phase 6 — دانش و رسانه
+
+- `tests/integration/KnowledgeContentTest.php` — لایهٔ داده: CRUD سه مخزن
+  الحاقی، slug تکراری، cascade حذف، ترتیب درس‌ها، متن فارسی
+- `tests/integration/KnowledgeRoutesTest.php` — مسیرهای عمومی و مدیریتی:
+  200/404، فقط منتشرشده‌ها، جستجو/موضوع/pagination، قفل درس، sitemap و
+  چرخهٔ کامل ایجاد/ویرایش admin با توکن CSRF معتبر
+- `tests/integration/MediaHubTest.php` — مرکز رسانه: فیلتر نوع، pagination،
+  مخفی‌سازی رسانهٔ درس قفل برای مهمان، عدم نمایش رسانهٔ متصل به پیش‌نویس
+- `tests/security/KnowledgeSecurityTest.php` — XSS، CSRF (403 بدون توکن)،
+  IDOR (ویرایش/حذف نوع ناهمخوان → 404)، نقش‌ها (user/editor → 403)،
+  دسترسی مهمان به درس قفل با پارامترهای دستکاری‌شده
+
+> توجه: اجرا روی PHP-Wasm/SQLite انجام شده است؛ طبق قرارداد پروژه تا اجرای
+> کامل روی PHP 8.3 واقعی + MySQL/MariaDB «GREEN» اعلام نمی‌شود.

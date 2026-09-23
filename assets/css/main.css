@@ -1159,3 +1159,355 @@ a:hover {
         font-size: 1rem;
     }
 }
+
+/* ============================================================
+   Phase 6 — knowledge & multimedia (books, lessons, research, /media)
+   Same tokens, same RTL mobile-first grammar. No framework.
+   ============================================================ */
+
+/* Filter bar (books/research search + topic select) */
+.filter-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin: 18px 0 22px;
+    padding: 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.filter-form input[type="search"],
+.filter-form select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font: inherit;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.filter-form button {
+    padding: 10px 22px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--color-primary);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.filter-form button:hover {
+    background: var(--color-primary-dark);
+}
+
+/* Author line on knowledge cards */
+.card-author {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-muted);
+}
+
+/* Topic chips (lessons + media hub filter) */
+.topic-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 20px;
+}
+
+.topic-chip {
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-muted);
+}
+
+.topic-chip:hover {
+    text-decoration: none;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.topic-chip.is-active {
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+/* ---------- Lessons: ordered curriculum list ---------- */
+.lesson-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 14px;
+}
+
+.lesson-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.lesson-number {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+    font-weight: 800;
+    font-size: 1.05rem;
+    border-radius: 12px;
+}
+
+.lesson-body {
+    min-width: 0;
+}
+
+.lesson-title {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+.lesson-title a {
+    color: var(--color-text);
+}
+
+.lesson-title a:hover {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.lesson-summary {
+    margin: 6px 0 0;
+    color: var(--color-muted);
+    font-size: 0.92rem;
+}
+
+.lesson-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0 0;
+    font-size: 0.8rem;
+    color: #8993a4;
+}
+
+.topic-link {
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.lock-badge {
+    display: inline-block;
+    padding: 1px 10px;
+    background: #fdf3e2;
+    color: #8a5a12;
+    border: 1px solid #f2ddb8;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* ---------- Lesson lock panel (guest view) ---------- */
+.lock-panel {
+    margin: 26px 0;
+    padding: 28px 22px;
+    text-align: center;
+    background: var(--color-surface);
+    border: 1px dashed var(--color-primary);
+    border-radius: var(--radius);
+}
+
+.lock-panel h2 {
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+}
+
+.lock-panel p {
+    margin: 0 0 16px;
+    color: var(--color-muted);
+}
+
+.lock-action {
+    display: inline-block;
+    padding: 10px 26px;
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: 8px;
+    font-weight: 700;
+}
+
+.lock-action:hover {
+    background: var(--color-primary-dark);
+    text-decoration: none;
+}
+
+/* Author on the detail page */
+.detail-author {
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+/* ---------- Research reading mode (long-form) ---------- */
+.is-reading .detail-body {
+    max-width: 760px;
+    margin-inline: auto;
+    font-size: 1.08rem;
+    line-height: 2.2;
+    text-align: justify;
+}
+
+.is-reading .detail-body br + br {
+    display: block;
+}
+
+.is-reading .detail-lead {
+    max-width: 760px;
+    margin-inline: auto;
+    font-size: 1.05rem;
+}
+
+@media (min-width: 720px) {
+    .is-reading .detail-body {
+        font-size: 1.12rem;
+    }
+}
+
+/* ---------- Media hub ---------- */
+.media-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+.media-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.media-player video,
+.media-player audio {
+    width: 100%;
+    display: block;
+    background: #000;
+}
+
+.media-player audio {
+    background: var(--color-bg);
+}
+
+.media-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 18px 18px;
+}
+
+.media-title {
+    margin: 2px 0 0;
+    font-size: 1.02rem;
+    line-height: 1.6;
+}
+
+.media-duration {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #8993a4;
+}
+
+.media-related {
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+}
+
+.media-related h3 {
+    margin: 0 0 6px;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+.media-related ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 4px;
+    font-size: 0.9rem;
+}
+
+/* ---------- Admin: danger button + inline forms + checkbox ---------- */
+.admin-button-danger {
+    padding: 4px 12px;
+    border: 1px solid #d84848;
+    border-radius: 6px;
+    background: #fdeaea;
+    color: #b02a2a;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.admin-button-danger:hover {
+    background: #d84848;
+    color: #fff;
+}
+
+.inline-form {
+    display: inline-block;
+    margin: 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-primary);
+}
+
+/* ---------- Phase 6: tablet & up ---------- */
+@media (min-width: 640px) {
+    .filter-form {
+        grid-template-columns: 1fr 220px auto;
+        align-items: center;
+    }
+    .media-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 960px) {
+    .media-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}

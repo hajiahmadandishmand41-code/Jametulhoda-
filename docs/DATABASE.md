@@ -1,4 +1,4 @@
-# دیتابیس — Phase 2 + Phase 3
+# دیتابیس — Phase 2 + Phase 3 + Phase 6
 
 ## اتصال
 
@@ -61,9 +61,38 @@ mysql -u USER -p DATABASE < database/seed.sql   # فقط توسعه/تست
 topics ──┐
          ├──> contents ──┬──> events          (1:1)
 media ───┘               ├──> reports  (1:1) ──> report_images ──> media
+                         ├──> books      (1:1, Phase 6)
+                         ├──> research   (1:1, Phase 6)
+                         ├──> lessons    (1:1, Phase 6)
                          ├──> content_media ──> media
                          └──> content_relations ──> contents
 ```
+
+## جدول‌های دانش (Phase 6)
+
+سه جدول `books`، `research` و `lessons` با همان الگوی 1:1 جدول‌های
+`events`/`reports` ساخته می‌شوند (FK ترکیبی روی `contents(id, content_type)`
++ CHECK نوع + `ON DELETE CASCADE`). این جداول فقط ستون‌های خاص نوع خود را
+نگه می‌دارند و عناوین/نامک‌ها/وضعیت/موضوع و رسانه‌ها از ستون فقرات `contents`
+استفاده می‌کنند:
+
+| جدول | ستون‌های اختصاصی | هدف |
+|------|------------------|-----|
+| `books` | `author` | نویسندهٔ کتاب |
+| `research` | `author` | پژوهشگر/نویسنده |
+| `lessons` | `sort_order`، `requires_login` | ترتیب آموزشی + قفل ورود |
+
+- ENUMهای `content_type` (در `contents` و جدول‌های 1:1) به
+  `'book','lesson','research'` گسترش یافته‌اند؛ CHECK جدول‌های
+  `events`/`reports` همچنان آن‌ها را به نوع خودشان محدود می‌کند.
+- نصب تازه: `schema.sql` هر ۱۳ جدول را می‌سازد (idempotent).
+- نصب موجود: مهاجرت additive در
+  `database/migrations/2026-09-23_phase6_knowledge_types.sql`
+  (گسترش ENUMها + ساخت سه جدول با `IF NOT EXISTS`). اجرای آن نیاز به backup
+  و پنجرهٔ نگهداری دارد؛ `CREATE TABLE IF NOT EXISTS` به‌تنهایی جدول موجود
+  را ALTER نمی‌کند.
+- `lessons.requires_login` فقط «سیاست» را ثبت می‌کند؛ اعمال قفل در PHP و
+  در هر درخواست انجام می‌شود (بدنه و رسانه‌ها هرگز برای مهمان ارسال نمی‌شوند).
 
 ### `topics`
 تاکسونومی مشترک همه‌ی محتواها.
@@ -279,7 +308,8 @@ CHECK دیتابیس روی سرورهایی که آن را enforce می‌کن�
 
 ## وضعیت تست
 
-- `tests/integration/SchemaTest.php` — پارس، نصب، جدول‌ها، FKها، Indexها، UNIQUEها، idempotent بودن
+- `tests/integration/SchemaTest.php` — پارس، نصب، جدول‌ها، FKها، Indexها، UNIQUEها، idempotent بودن (۱۳ جدول شامل Phase 6)
+- `tests/integration/KnowledgeContentTest.php` — CRUD لایهٔ دادهٔ کتاب/درس/پژوهش، cascade، ترتیب درس‌ها، متن فارسی
 - `tests/integration/DataLayerTest.php` — CRUD، روابط، slug، draft/published، transaction، فارسی
 - `tests/integration/SeedTest.php` — نصب seed و درستی روابطش
 - `tests/security/SqlInjectionTest.php` — مقاومت در برابر SQL injection
