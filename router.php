@@ -119,6 +119,13 @@ function define_routes(Router $router): void
 
     // Phase 4 newsroom: all mutations are admin-only and CSRF protected.
     $adminOnly = static function (): bool { return requireRole('admin'); };
+    foreach (['news'=>'خبرها','article'=>'مقالات','report'=>'گزارش‌ها','event'=>'رویدادها'] as $contentAlias => $contentAliasLabel) {
+        $router->get('/admin/' . ($contentAlias === 'article' ? 'articles' : $contentAlias . 's'), static function () use ($adminOnly, $contentAlias): void {
+            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            $repo = new ContentRepository(); $rows = $repo->adminList($contentAlias, null, '', 20, 0);
+            admin_view('content_registry', ['title'=>'مخزن ' . $contentAlias, 'rows'=>$rows, 'total'=>count($rows), 'page'=>1, 'pages'=>1, 'filters'=>['type'=>$contentAlias,'status'=>'','q'=>'']]);
+        });
+    }
     $router->get('/admin/content', static function () use ($adminOnly): void {
         if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
         $page = max(1, (int)($_GET['page'] ?? 1)); $limit = 20;
