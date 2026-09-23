@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Test runner — Phase 1 + Phase 2 + Phase 3.
+ * Test runner — Phase 1 + Phase 2 + Phase 3 + Phase 4.1.
  *
  * Usage: php tests/run.php
  * Runs: unit + integration + security suites. Exit code 0 = green.

@@ -40,10 +40,11 @@ final class BasicsTest extends TestCase
         $this->assertContains('Require all denied', $ht);
     }
 
-    public function testAdminIsDeniedUntilBuilt(): void
+    public function testAdminIsHandledByTheFrontController(): void
     {
         $ht = $this->read('admin/.htaccess');
-        $this->assertContains('Require all denied', $ht);
+        $this->assertContains('RewriteRule ^ ../index.php [L]', $ht);
+        $this->assertContains('Options -Indexes', $ht);
     }
 
     public function testLocalConfigIsGitIgnored(): void

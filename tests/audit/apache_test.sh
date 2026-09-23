@@ -81,7 +81,7 @@ check_code "GET /tests/run.php"       403 "/tests/run.php"
 check_code "GET /database/schema.sql" 403 "/database/schema.sql"
 check_code "GET /logs"                403 "/logs"
 check_code "GET /.htaccess"           403 "/.htaccess"
-check_code "GET /admin/"              403 "/admin/"
+check_code "GET /admin/"              302 "/admin/"
 check_code "GET /assets/ (listing)"   403 "/assets/"
 
 # --- Security headers ---

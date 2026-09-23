@@ -38,7 +38,7 @@ Browser
 | `assets/` | css/js/img/fonts |
 | `uploads/` | رسانه‌های آپلودی (Phase 3) — اجرای کد در آن ممنوع |
 | `database/` | `schema.sql` (ساختار Phase 2 + جدول‌های auth) و `seed.sql` (داده‌ی آزمایشی؛ بدون کاربر) |
-| `admin/` | پنل مدیریت (Phase 4) — فعلاً `Require all denied` |
+| `admin/` | نقطه ورود Apache برای پنل؛ درخواست‌ها به front controller می‌روند |
 | `tests/` | تست‌های خودکار + چک‌لیست دستی |
 | `docs/` | مستندات |
 | `logs/` | لاگ خطا (از وب بلاک) |
@@ -76,6 +76,12 @@ Browser
   `hash_equals()` انجام می‌شود و توکن پس از login/موارد لازم rotate می‌شود.
 - `LoginRateLimiter` با جدول aggregate `login_attempts`، تلاش‌های ناموفق یک
   email/IP را برای پنجره‌ی محدود نگه می‌دارد و به سرویس بیرونی وابسته نیست.
+
+## پنل مدیریت — Phase 4.1
+
+`GET /admin` تنها route فعال این مرحله است و با `requireRole('admin')` محافظت می‌شود.
+داشبورد آمار را فقط از Repositoryها می‌خواند؛ هیچ SQL در view نیست. منوی بخش‌های
+آینده عمداً غیرفعال است و route جعلی ندارد. خروج همچنان فقط `POST /logout` با CSRF است.
 
 ## افزودن صفحه جدید (فازهای بعدی)
 

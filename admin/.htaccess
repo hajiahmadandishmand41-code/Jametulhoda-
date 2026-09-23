@@ -1,6 +1,7 @@
-# =============================================================
-# /admin does not exist yet (it is built in Phase 4).
-# Deny everything now so nothing under /admin is reachable.
-# =============================================================
-
-Require all denied
+# Admin URLs are application routes, not a browsable static directory.
+Options -Indexes
+DirectoryIndex disabled
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^ ../index.php [L]
+</IfModule>
