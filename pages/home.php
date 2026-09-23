@@ -59,8 +59,8 @@ $cover = media_file_exists($coverPath) ? media_url($coverPath) : '';
 
 <?php if (!$hasAny): ?>
     <section class="hero">
-        <h1>به <?= e((string) Config::get('app.name')) ?> خوش آمدید</h1>
-        <p class="hero-lead"><?= e((string) Config::get('app.description')) ?></p>
+        <h1>به <?= e((string) site_setting('name')) ?> خوش آمدید</h1>
+        <p class="hero-lead"><?= e((string) site_setting('description')) ?></p>
         <p class="empty-state">هنوز محتوایی منتشر نشده است. به‌زودی مطالب تازه در دسترس قرار می‌گیرد.</p>
     </section>
 <?php else: ?>
