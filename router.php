@@ -29,13 +29,17 @@ function define_routes(Router $router): void
         // The home page is the site's entry point: a transient database
         // problem should degrade to a professional empty state, never a hard
         // 500 for every visitor. Detail/listing pages still surface errors.
-        $news = $articles = $reports = $events = $topics = [];
+        $news = $articles = $reports = $events = $topics = $books = $lessons = $research = $mediaItems = [];
         try {
             $repo = new ContentRepository();
             $news = $repo->publicList('news', 7, 0);
             $articles = $repo->publicList('article', 4, 0);
             $reports = $repo->publicList('report', 4, 0);
             $events = $repo->publicList('event', 4, 0);
+            $books = (new BookRepository())->publicList([], 4, 0);
+            $lessons = (new LessonRepository())->publicList([], 4, 0);
+            $research = (new ResearchRepository())->publicList([], 4, 0);
+            $mediaItems = (new MediaRepository())->publicHubList(null, false, 3, 0);
             $topics = (new TopicRepository())->allActive();
         } catch (Throwable $e) {
             log_error('Home page data load failed: ' . get_class($e));
@@ -49,6 +53,10 @@ function define_routes(Router $router): void
             'articles' => $articles,
             'reports' => $reports,
             'events' => $events,
+            'books' => $books,
+            'lessons' => $lessons,
+            'research' => $research,
+            'mediaItems' => $mediaItems,
             'topics' => $topics,
             'isHome' => true,
         ]);

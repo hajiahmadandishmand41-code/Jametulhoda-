@@ -5,19 +5,20 @@ declare(strict_types=1);
 /** @var string $content */
 $user = currentUser();
 $pageTitle = (string) ($title ?? 'داشبورد');
+$activePath = current_path();
 $navigation = [
-    ['label' => 'داشبورد', 'icon' => '⌂', 'active' => true],
-    ['label' => 'محتوا', 'icon' => '▤', 'href' => '/admin/content'],
-    ['label' => 'مقالات', 'icon' => '▥'],
-    ['label' => 'گزارش‌ها', 'icon' => '▦'],
-    ['label' => 'رویدادها', 'icon' => '◷'],
+    ['label' => 'داشبورد', 'icon' => '⌂', 'href' => '/admin'],
+    ['label' => 'همه محتوا', 'icon' => '▤', 'href' => '/admin/content'],
+    ['label' => 'خبرها', 'icon' => '◌', 'href' => '/admin/news'],
+    ['label' => 'مقالات', 'icon' => '▥', 'href' => '/admin/articles'],
+    ['label' => 'گزارش‌ها', 'icon' => '▦', 'href' => '/admin/reports'],
+    ['label' => 'رویدادها', 'icon' => '◷', 'href' => '/admin/events'],
     ['label' => 'کتاب‌ها', 'icon' => '❑', 'href' => '/admin/books'],
     ['label' => 'درس‌ها', 'icon' => '≣', 'href' => '/admin/lessons'],
     ['label' => 'پژوهش‌ها', 'icon' => '◎', 'href' => '/admin/research'],
     ['label' => 'رسانه‌ها', 'icon' => '◉', 'href' => '/admin/media'],
     ['label' => 'موضوعات', 'icon' => '◆', 'href' => '/admin/topics'],
-    ['label' => 'کاربران', 'icon' => '♙'],
-    ['label' => 'تنظیمات', 'icon' => '⚙'],
+    ['label' => 'کاربران', 'icon' => '♙', 'href' => '/admin/users'],
 ];
 ?>
 <!DOCTYPE html>
@@ -32,21 +33,16 @@ $navigation = [
 <div class="admin-shell">
     <aside class="admin-sidebar" aria-label="ناوبری پنل مدیریت">
         <div class="admin-brand">
-            <span class="admin-brand-mark" aria-hidden="true">ن</span>
+            <img class="admin-brand-logo" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="38" height="38" aria-hidden="true">
             <span><?= e((string) Config::get('app.name')) ?></span>
         </div>
         <p class="admin-section-label">اتاق خبر</p>
         <nav class="admin-nav">
             <?php foreach ($navigation as $item): ?>
-                <?php if (!empty($item['active'])): ?>
-                    <a class="admin-nav-item is-active" href="<?= e(url('/admin')) ?>" aria-current="page">
-                        <span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span>
-                    </a>
-                <?php elseif (!empty($item['href'])): ?>
-                    <a class="admin-nav-item" href="<?= e(url($item['href'])) ?>"><span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span></a>
-                <?php else: ?>
-                    <span class="admin-nav-item is-disabled" aria-disabled="true"><span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span></span>
-                <?php endif; ?>
+                <?php $isActive = $activePath === $item['href'] || ($item['href'] !== '/admin' && str_starts_with($activePath, $item['href'] . '/')); ?>
+                <a class="admin-nav-item<?= $isActive ? ' is-active' : '' ?>" href="<?= e(url($item['href'])) ?>"<?= $isActive ? ' aria-current="page"' : '' ?>>
+                    <span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span>
+                </a>
             <?php endforeach; ?>
         </nav>
         <div class="admin-sidebar-footer">
@@ -64,7 +60,7 @@ $navigation = [
                 <div class="admin-avatar" aria-hidden="true"><?= e(mb_substr((string) ($user['name'] ?? 'ا'), 0, 1)) ?></div>
                 <div class="admin-user-copy">
                     <strong><?= e((string) ($user['name'] ?? 'کاربر')) ?></strong>
-                    <span>مدیر سیستم</span>
+                    <span><?= e(['admin' => 'مدیر', 'editor' => 'ویرایشگر', 'user' => 'کاربر'][(string) ($user['role'] ?? 'user')] ?? 'کاربر') ?></span>
                 </div>
                 <form method="post" action="<?= e(url('/logout')) ?>">
                     <?= csrf_field() ?>

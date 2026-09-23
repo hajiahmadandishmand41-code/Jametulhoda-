@@ -1,9 +1,8 @@
-/* main.js — Phase 5 + Phase 6
+/* main.js — dependency-free progressive enhancement.
  *
- * Minimal, dependency-free progressive enhancement. The site is fully usable
- * without JavaScript; this only wires up the mobile navigation toggle and a
- * confirmation prompt for destructive admin forms (data-confirm). Server-side
- * checks (role, CSRF) stay the real guard either way.
+ * Wires the mobile navigation drawer and destructive-form confirmations.
+ * Security remains server-side: authorization, CSRF and validation are never
+ * delegated to JavaScript.
  */
 (function () {
     'use strict';
@@ -11,25 +10,53 @@
     document.addEventListener('DOMContentLoaded', function () {
         var toggle = document.querySelector('.nav-toggle');
         var nav = document.getElementById('primary-nav');
-        if (!toggle || !nav) {
-            return;
+        var overlay = document.querySelector('.nav-overlay');
+
+        function setMenu(open) {
+            if (!toggle || !nav) {
+                return;
+            }
+            nav.classList.toggle('is-open', open);
+            document.body.classList.toggle('nav-open', open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (overlay) {
+                overlay.hidden = !open;
+            }
         }
 
-        toggle.addEventListener('click', function () {
-            var isOpen = nav.classList.toggle('is-open');
-            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        });
+        if (toggle && nav) {
+            toggle.addEventListener('click', function () {
+                setMenu(!nav.classList.contains('is-open'));
+            });
 
-        // Close the menu with the Escape key for keyboard users.
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && nav.classList.contains('is-open')) {
-                nav.classList.remove('is-open');
-                toggle.setAttribute('aria-expanded', 'false');
-                toggle.focus();
+            if (overlay) {
+                overlay.addEventListener('click', function () {
+                    setMenu(false);
+                    toggle.focus();
+                });
             }
-        });
 
-        // Destructive forms ask before submitting (delete actions).
+            nav.addEventListener('click', function (event) {
+                var target = event.target;
+                if (target && target.closest && target.closest('a')) {
+                    setMenu(false);
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && nav.classList.contains('is-open')) {
+                    setMenu(false);
+                    toggle.focus();
+                }
+            });
+
+            window.addEventListener('resize', function () {
+                if (window.matchMedia('(min-width: 721px)').matches) {
+                    setMenu(false);
+                }
+            });
+        }
+
         document.addEventListener('submit', function (event) {
             var form = event.target;
             if (form && form.getAttribute && form.getAttribute('data-confirm')) {
