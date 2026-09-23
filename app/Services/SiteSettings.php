@@ -7,6 +7,7 @@ final class SiteSettings
 {
     private static ?array $cache = null;
     private static array $images = [];
+    private static bool $available = false;
     public const IMAGES = ['logo' => 'logo.svg', 'favicon' => 'favicon.svg', 'og_image' => 'og-logo.svg'];
     public const MAX_BYTES = 2 * 1024 * 1024;
     private const MIME = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp'];
@@ -15,6 +16,7 @@ final class SiteSettings
     {
         self::$cache = null;
         self::$images = [];
+        self::$available = false;
     }
 
     public static function all(): array
@@ -25,12 +27,19 @@ final class SiteSettings
                 foreach (db_all('SELECT `setting_key`, `setting_value` FROM `site_settings`') as $row) {
                     self::$cache[$row['setting_key']] = (string) $row['setting_value'];
                 }
+                self::$available = true;
             } catch (Throwable $e) {
                 // Legacy installations and unavailable databases retain repository branding.
                 log_error('Site settings unavailable; using defaults.');
             }
         }
         return self::$cache;
+    }
+
+    public static function available(): bool
+    {
+        self::all();
+        return self::$available;
     }
 
     public static function get(string $key): string

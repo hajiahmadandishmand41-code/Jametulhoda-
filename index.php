@@ -20,6 +20,8 @@ require __DIR__ . '/app/Helpers/admin.php';
 require __DIR__ . '/config/config.php';
 require __DIR__ . '/app/Router.php';
 require __DIR__ . '/config/database.php';
+require __DIR__ . '/app/Helpers/schema.php';
+require __DIR__ . '/app/Helpers/migrations.php';
 require __DIR__ . '/app/Services/SiteSettings.php';
 require __DIR__ . '/app/Services/SessionManager.php';
 require __DIR__ . '/app/Services/Csrf.php';

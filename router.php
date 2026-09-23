@@ -667,6 +667,23 @@ function define_routes(Router $router): void
 
         return requireRole('admin');
     };
+    $router->add('POST', '/admin/settings/upgrade', static function () use ($superAdminOnly): void {
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+            admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست.', '/admin/settings');
+            return;
+        }
+        try {
+            installer_apply_migrations(db());
+            SiteSettings::resetCache();
+        } catch (Throwable $e) {
+            log_error('Settings migration failed: ' . get_class($e));
+            admin_status(503, 'ارتقای دیتابیس انجام نشد', 'اتصال و مجوزهای دیتابیس و فایل‌های migration را بررسی کنید. هیچ رمز یا متن خام خطایی نمایش داده نمی‌شود.', '/admin/settings');
+            return;
+        }
+        redirect('/admin/settings', 303);
+    });
+
     $router->get('/admin/settings', static function () use ($superAdminOnly): void {
         if (!$superAdminOnly()) { admin_forbidden(); return; }
         admin_view('settings', ['title' => 'تنظیمات سایت', 'settings' => [
@@ -682,7 +699,7 @@ function define_routes(Router $router): void
         }
         try {
             SiteSettings::save($_POST, $_FILES);
-            redirect('/admin/settings?saved=1', 303);
+            $errors = [];
         } catch (InvalidArgumentException $e) {
             http_response_code(422);
             $errors = [$e->getMessage()];
@@ -691,6 +708,7 @@ function define_routes(Router $router): void
             http_response_code(503);
             $errors = ['ذخیره انجام نشد. اتصال دیتابیس، اجرای migration تنظیمات و دسترسی نوشتن uploads/site را بررسی کنید.'];
         }
+        if ($errors === []) { redirect('/admin/settings?saved=1', 303); }
         admin_view('settings', ['title' => 'تنظیمات سایت', 'settings' => [
             'name' => is_string($_POST['name'] ?? null) ? $_POST['name'] : site_setting('name'),
             'description' => is_string($_POST['description'] ?? null) ? $_POST['description'] : site_setting('description'),

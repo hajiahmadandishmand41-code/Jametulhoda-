@@ -8,6 +8,13 @@ $labels = ['logo' => 'لوگوی اصلی', 'favicon' => 'نماد مرورگر 
     <div><p class="admin-kicker">هویت سایت</p><h2>تنظیمات سایت</h2><p>نام و تصاویر سایت را بدون ویرایش فایل‌ها مدیریت کنید.</p></div>
     <a class="admin-button" href="<?= e(url('/')) ?>">مشاهده سایت</a>
 </section>
+<?php if (!SiteSettings::available()): ?>
+<form class="admin-form" method="post" action="<?= e(url('/admin/settings/upgrade')) ?>" data-confirm="پیش از ارتقا از دیتابیس پشتیبان بگیرید. ارتقا اجرا شود؟">
+    <?= csrf_field() ?>
+    <p role="alert">تنظیمات دیتابیس در دسترس نیست. اگر نسخه قبلی سایت نصب است، پس از تهیه پشتیبان دکمه زیر را بزنید. در صورت قطعی دیتابیس، ابتدا اتصال را بررسی کنید.</p>
+    <button class="admin-button" type="submit">اجرای ارتقای دیتابیس</button>
+</form>
+<?php endif; ?>
 <?php if ($saved): ?><p class="settings-notice" role="status">تنظیمات ذخیره شد و در سایت قابل مشاهده است.</p><?php endif; ?>
 <?php if ($errors): ?>
 <div id="settings-errors" class="form-errors" role="alert"><strong>تنظیمات ذخیره نشد.</strong><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul><p>در صورت انتخاب تصویر، فایل را دوباره انتخاب کنید.</p></div>

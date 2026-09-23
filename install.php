@@ -14,6 +14,8 @@ declare(strict_types=1);
 require __DIR__ . '/config/config.php';
 require __DIR__ . '/app/Helpers/functions.php';
 require __DIR__ . '/app/Helpers/schema.php';
+require __DIR__ . '/app/Helpers/migrations.php';
+ini_set('display_errors', '0');
 
 if (!headers_sent()) {
     header('Content-Type: text/html; charset=UTF-8');
@@ -46,12 +48,12 @@ function installer_old_input(): array
 {
     return [
         'site_name' => trim((string) ($_POST['site_name'] ?? Config::get('app.name', 'جامة‌الهدی'))),
-        'db_host' => trim((string) ($_POST['db_host'] ?? 'localhost')),
-        'db_name' => trim((string) ($_POST['db_name'] ?? '')),
-        'db_user' => trim((string) ($_POST['db_user'] ?? '')),
+        'db_host' => trim((string) ($_POST['db_host'] ?? 'sql304.infinityfree.com')),
+        'db_name' => trim((string) ($_POST['db_name'] ?? 'if0_42959770_jametulhoda')),
+        'db_user' => trim((string) ($_POST['db_user'] ?? 'if0_42959770')),
         'db_port' => trim((string) ($_POST['db_port'] ?? '3306')),
-        'admin_name' => trim((string) ($_POST['admin_name'] ?? '')),
-        'admin_email' => trim((string) ($_POST['admin_email'] ?? '')),
+        'admin_name' => trim((string) ($_POST['admin_name'] ?? 'Haji')),
+        'admin_email' => trim((string) ($_POST['admin_email'] ?? 'hajiahmads299@gmail.com')),
     ];
 }
 
@@ -80,6 +82,12 @@ function installer_requirements(): array
         'label' => 'Schema SQL',
         'ok' => is_file(__DIR__ . '/database/schema.sql'),
         'message' => is_file(__DIR__ . '/database/schema.sql') ? 'یافت شد' : 'database/schema.sql وجود ندارد',
+    ];
+
+    $checks[] = [
+        'label' => 'ذخیره تصاویر هویت سایت',
+        'ok' => is_writable(__DIR__ . '/uploads/site') && is_file(__DIR__ . '/uploads/site/.htaccess'),
+        'message' => 'پوشه uploads/site باید قابل نوشتن و دارای .htaccess باشد.',
     ];
 
     return $checks;
@@ -180,6 +188,8 @@ function installer_write_local_config(array $input, string $dbPassword, string $
         'app' => [
             'name' => $input['site_name'],
             'environment' => 'production',
+            'url' => 'https://jametulhoda.gt.tc' . site_base_path(),
+            'timezone' => 'Asia/Kabul',
         ],
         'db' => [
             'host' => $input['db_host'],
@@ -201,97 +211,6 @@ function installer_write_local_config(array $input, string $dbPassword, string $
     @chmod($path, 0640);
 }
 
-function installer_ensure_migration_table(PDO $pdo): void
-{
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS `schema_migrations` (
-            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `migration` VARCHAR(190) NOT NULL,
-            `checksum` CHAR(64) NOT NULL,
-            `applied_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (`id`),
-            UNIQUE KEY `uq_schema_migrations_migration` (`migration`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-    );
-}
-
-function installer_table_exists(PDO $pdo, string $table): bool
-{
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?');
-    $stmt->execute([$table]);
-
-    return (int) $stmt->fetchColumn() > 0;
-}
-
-function installer_column_type(PDO $pdo, string $table, string $column): string
-{
-    $stmt = $pdo->prepare('SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1');
-    $stmt->execute([$table, $column]);
-    $value = $stmt->fetchColumn();
-
-    return is_string($value) ? $value : '';
-}
-
-function installer_phase6_satisfied(PDO $pdo): bool
-{
-    foreach (['books', 'lessons', 'research'] as $table) {
-        if (!installer_table_exists($pdo, $table)) {
-            return false;
-        }
-    }
-
-    return str_contains(installer_column_type($pdo, 'contents', 'content_type'), 'book')
-        && str_contains(installer_column_type($pdo, 'contents', 'content_type'), 'lesson')
-        && str_contains(installer_column_type($pdo, 'contents', 'content_type'), 'research');
-}
-
-/** @return list<string> */
-function installer_migration_files(): array
-{
-    $files = glob(__DIR__ . '/database/migrations/*.sql') ?: [];
-    sort($files, SORT_STRING);
-
-    return array_values($files);
-}
-
-/** @return array{executed:int,recorded:int,skipped:int} */
-function installer_apply_migrations(PDO $pdo): array
-{
-    installer_ensure_migration_table($pdo);
-    $executed = 0;
-    $recorded = 0;
-    $skipped = 0;
-
-    foreach (installer_migration_files() as $path) {
-        $name = basename($path);
-        $checksum = hash_file('sha256', $path) ?: str_repeat('0', 64);
-        $stmt = $pdo->prepare('SELECT `checksum` FROM `schema_migrations` WHERE `migration` = ? LIMIT 1');
-        $stmt->execute([$name]);
-        if ($stmt->fetchColumn() !== false) {
-            $skipped++;
-            continue;
-        }
-
-        if ($name === '2026-09-23_phase6_knowledge_types.sql' && installer_phase6_satisfied($pdo)) {
-            $insert = $pdo->prepare('INSERT INTO `schema_migrations` (`migration`, `checksum`) VALUES (?, ?)');
-            $insert->execute([$name, $checksum]);
-            $recorded++;
-            continue;
-        }
-
-        $sql = (string) file_get_contents($path);
-        foreach (sql_split_statements($sql) as $statement) {
-            $pdo->exec($statement);
-            $executed++;
-        }
-        $insert = $pdo->prepare('INSERT INTO `schema_migrations` (`migration`, `checksum`) VALUES (?, ?)');
-        $insert->execute([$name, $checksum]);
-        $recorded++;
-    }
-
-    return ['executed' => $executed, 'recorded' => $recorded, 'skipped' => $skipped];
-}
-
 /** @return list<string> */
 function installer_verify_schema(PDO $pdo): array
 {
@@ -299,7 +218,7 @@ function installer_verify_schema(PDO $pdo): array
     $requiredTables = [
         'users', 'contents', 'topics', 'media', 'books', 'lessons', 'research',
         'reports', 'events', 'report_images', 'content_media', 'content_relations',
-        'login_attempts', 'schema_migrations',
+        'login_attempts', 'schema_migrations', 'site_settings',
     ];
     foreach ($requiredTables as $table) {
         if (!installer_table_exists($pdo, $table)) {
@@ -311,6 +230,7 @@ function installer_verify_schema(PDO $pdo): array
         ['users', 'password_hash'], ['users', 'role'], ['contents', 'content_type'],
         ['contents', 'status'], ['contents', 'cover_media_id'], ['media', 'disk_path'],
         ['topics', 'slug'], ['login_attempts', 'fingerprint'],
+        ['site_settings', 'setting_key'], ['site_settings', 'setting_value'],
     ];
     foreach ($columnChecks as [$table, $column]) {
         if (installer_column_type($pdo, $table, $column) === '') {
@@ -388,51 +308,54 @@ if (is_file($lockFile)) {
         if ($errors === []) {
             $dbPassword = (string) ($_POST['db_password'] ?? '');
             $adminPassword = (string) ($_POST['admin_password'] ?? '');
+            $stage = 'اتصال MySQL';
             try {
                 $pdo = installer_connect($old, $dbPassword);
                 $steps[] = 'اتصال MySQL با موفقیت برقرار شد.';
 
-                installer_write_local_config($old, $dbPassword, $localConfigFile);
-                $steps[] = 'config/local.php ساخته شد.';
-
+                $stage = 'نصب Schema';
                 $schemaStatements = schema_install($pdo, 'schema.sql');
                 $steps[] = 'Schema اصلی نصب/بررسی شد (' . $schemaStatements . ' statement).';
 
+                $stage = 'اجرای Migration';
                 $migrationResult = installer_apply_migrations($pdo);
                 $steps[] = 'Migrationها بررسی شدند: اجرا ' . $migrationResult['executed'] . '، ثبت ' . $migrationResult['recorded'] . '، عبور ' . $migrationResult['skipped'] . '.';
 
+                $stage = 'اعتبارسنجی Schema';
                 $schemaErrors = installer_verify_schema($pdo);
                 if ($schemaErrors !== []) {
                     throw new RuntimeException(implode(' ', $schemaErrors));
                 }
                 $steps[] = 'جدول‌ها، ستون‌ها، Foreign Keyها و Unique Indexهای اصلی تأیید شدند.';
 
+                $stage = 'نوشتن تنظیمات محلی';
+                installer_write_local_config($old, $dbPassword, $localConfigFile);
+                $steps[] = 'config/local.php ساخته شد.';
+
+                $stage = 'ایجاد مدیر';
                 installer_create_admin($pdo, $old, $adminPassword);
                 $steps[] = 'حساب مدیر اولیه با password_hash() ساخته شد.';
 
+                $stage = 'ساخت قفل نصب';
                 installer_write_lock($lockFile, $old['site_name']);
                 $steps[] = 'Installer قفل شد و نصب مجدد بدون حذف قفل ممکن نیست.';
                 $installed = true;
             } catch (Throwable $e) {
-                // Never expose database credentials or connection details that may contain
-                // sensitive information. Give the installer enough diagnostic context to
-                // identify whether the failure happened during connection or schema setup.
+                // Driver/exception text may contain user names, SQL values and secrets.
+                // Display only allowlisted numeric diagnostics and our own stage label.
+                $diagnostic = '';
                 if ($e instanceof PDOException) {
-                    $code = (string) $e->getCode();
-                    $driverMessage = trim($e->errorInfo[2] ?? '');
-                    $safeMessage = preg_replace(
-                        '/(?:password|passwd|pwd)=\\S+/i',
-                        'password=***',
-                        $driverMessage
-                    ) ?? $driverMessage;
-                    if ($safeMessage !== '') {
-                        $errors[] = 'دیتابیس خطا داد [' . $code . ']: ' . $safeMessage;
-                    } else {
-                        $errors[] = 'عملیات دیتابیس ناموفق بود [' . $code . ']. جزئیات خطا از طرف MySQL خالی است.';
+                    $state = (string) $e->getCode();
+                    $number = $e->errorInfo[1] ?? null;
+                    if (preg_match('/\A[A-Z0-9]{5}\z/', $state)) {
+                        $diagnostic .= ' SQLSTATE: ' . $state;
                     }
-                } else {
-                    $errors[] = 'نصب در یکی از مراحل دیتابیس متوقف شد: ' . $e->getMessage();
+                    if (is_int($number)) {
+                        $diagnostic .= ' MySQL: ' . $number;
+                    }
                 }
+                $errors[] = 'نصب در مرحله «' . $stage . '» متوقف شد.' . $diagnostic
+                    . ' اتصال، مجوزهای دیتابیس و دسترسی نوشتن پوشه‌ها را بررسی کنید. رمزها و متن خام خطا نمایش داده نمی‌شوند.';
             }
         }
     }
