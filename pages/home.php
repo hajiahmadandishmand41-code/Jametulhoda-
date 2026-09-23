@@ -15,13 +15,18 @@ declare(strict_types=1);
  * @var list<array<string,mixed>>     $articles
  * @var list<array<string,mixed>>     $reports
  * @var list<array<string,mixed>>     $events
+ * @var list<array<string,mixed>>     $books
+ * @var list<array<string,mixed>>     $lessons
+ * @var list<array<string,mixed>>     $research
+ * @var list<array<string,mixed>>     $mediaItems
  * @var list<array<string,mixed>>     $topics
  */
 
 $featured = $featured ?? null;
 $secondary = $secondary ?? [];
 $latest = $latest ?? [];
-$hasAny = $featured || $secondary || $latest || !empty($articles) || !empty($reports) || !empty($events);
+$hasAny = $featured || $secondary || $latest || !empty($articles) || !empty($reports) || !empty($events)
+    || !empty($books) || !empty($lessons) || !empty($research) || !empty($mediaItems);
 
 /** Render one content card. */
 $card = static function (array $item, string $type, bool $withImage = true): void {
@@ -102,10 +107,13 @@ $card = static function (array $item, string $type, bool $withImage = true): voi
 
     <?php
     $sectionData = [
-        ['items' => $latest,             'type' => 'news',    'label' => 'آخرین خبرها', 'href' => '/news'],
-        ['items' => $articles ?? [],     'type' => 'article', 'label' => 'مقالات',     'href' => '/articles'],
-        ['items' => $reports ?? [],      'type' => 'report',  'label' => 'گزارش‌ها',   'href' => '/reports'],
-        ['items' => $events ?? [],       'type' => 'event',   'label' => 'رویدادها',   'href' => '/events'],
+        ['items' => $latest,             'type' => 'news',     'label' => 'آخرین خبرها', 'href' => '/news'],
+        ['items' => $articles ?? [],     'type' => 'article',  'label' => 'مقالات',     'href' => '/articles'],
+        ['items' => $reports ?? [],      'type' => 'report',   'label' => 'گزارش‌ها',   'href' => '/reports'],
+        ['items' => $events ?? [],       'type' => 'event',    'label' => 'رویدادها',   'href' => '/events'],
+        ['items' => $books ?? [],        'type' => 'book',     'label' => 'کتاب‌ها',    'href' => '/books'],
+        ['items' => $lessons ?? [],      'type' => 'lesson',   'label' => 'درس‌ها',     'href' => '/lessons'],
+        ['items' => $research ?? [],     'type' => 'research', 'label' => 'پژوهش‌ها',   'href' => '/research'],
     ];
     foreach ($sectionData as $section):
         $items = $section['items'];
@@ -125,6 +133,31 @@ $card = static function (array $item, string $type, bool $withImage = true): voi
             </div>
         </section>
     <?php endforeach; ?>
+
+    <?php if (!empty($mediaItems)): ?>
+        <section class="portal-section" aria-label="ویدیو و صوت">
+            <div class="section-heading">
+                <h2 class="section-title">ویدیو و صوت</h2>
+                <a class="section-more" href="<?= e(url('/media')) ?>">مشاهدهٔ رسانه‌ها</a>
+            </div>
+            <div class="home-media-grid">
+                <?php foreach ($mediaItems as $media): ?>
+                    <?php $src = media_url((string) ($media['disk_path'] ?? '')); ?>
+                    <article class="home-media-card">
+                        <span class="media-type-badge"><?= e((string) (($media['media_type'] ?? '') === 'video' ? 'ویدیو' : 'صوت')) ?></span>
+                        <h3><?= e((string) ($media['title'] ?? $media['original_name'] ?? 'رسانه')) ?></h3>
+                        <?php if ($src !== ''): ?>
+                            <?php if (($media['media_type'] ?? '') === 'video'): ?>
+                                <video controls preload="metadata" src="<?= e($src) ?>"></video>
+                            <?php else: ?>
+                                <audio controls preload="metadata" src="<?= e($src) ?>"></audio>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </section>
+    <?php endif; ?>
 
 <?php endif; ?>
 

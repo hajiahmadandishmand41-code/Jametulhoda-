@@ -26,7 +26,7 @@ final class AuthGuards
         'content.edit' => 'editor',
         'content.publish' => 'editor',
         'users.manage' => 'admin',
-        'admin.access' => 'admin',
+        'admin.access' => 'editor',
     ];
 
     public static function currentUser(): ?array

@@ -76,6 +76,25 @@ final class ReportRepository extends BaseRepository
     }
 
     /**
+     * Create or update the report-specific row for an existing content row.
+     *
+     * @param array<string,mixed> $data event_date, location
+     */
+    public function save(int $contentId, array $data): void
+    {
+        $payload = [
+            'event_date' => trim((string) ($data['event_date'] ?? '')) ?: null,
+            'location' => trim((string) ($data['location'] ?? '')) ?: null,
+        ];
+        $exists = (int) db_value('SELECT COUNT(*) FROM `reports` WHERE `content_id` = ?', [$contentId], 0) > 0;
+        if ($exists) {
+            db_update('reports', $payload, ['content_id' => $contentId]);
+            return;
+        }
+        db_insert('reports', $payload + ['content_id' => $contentId, 'content_type' => 'report']);
+    }
+
+    /**
      * Update the report-specific columns.
      *
      * @param array<string,mixed> $data event_date, location

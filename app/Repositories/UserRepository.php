@@ -132,6 +132,96 @@ final class UserRepository extends BaseRepository
         return db_update('users', ['is_active' => $active ? 1 : 0], ['id' => $id]) > 0;
     }
 
+    /**
+     * Admin-safe user lookup (never returns password_hash).
+     *
+     * @return array<string,mixed>|null
+     */
+    public function find(int $id): ?array
+    {
+        return db_one(
+            'SELECT `id`, `name`, `email`, `role`, `is_active`, `created_at`, `updated_at`, `last_login_at`
+             FROM `users` WHERE `id` = ? LIMIT 1',
+            [$id]
+        );
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function adminList(string $search = '', int $limit = 50, int $offset = 0): array
+    {
+        [$limit, $offset] = $this->paging($limit, $offset, 100);
+        $where = [];
+        $params = [];
+        if ($search !== '') {
+            $where[] = '(`name` LIKE ? ESCAPE \'=\' OR `email` LIKE ? ESCAPE \'=\')';
+            $q = '%' . str_replace(['=', '%', '_'], ['==', '=%', '=_'], $search) . '%';
+            array_push($params, $q, $q);
+        }
+
+        return db_all(
+            sprintf(
+                'SELECT `id`, `name`, `email`, `role`, `is_active`, `created_at`, `updated_at`, `last_login_at`
+                 FROM `users`%s ORDER BY `created_at` DESC, `id` DESC LIMIT %d OFFSET %d',
+                $where ? ' WHERE ' . implode(' AND ', $where) : '',
+                $limit,
+                $offset
+            ),
+            $params
+        );
+    }
+
+    public function adminCount(string $search = ''): int
+    {
+        if ($search === '') {
+            return (int) db_value('SELECT COUNT(*) FROM `users`', [], 0);
+        }
+        $q = '%' . str_replace(['=', '%', '_'], ['==', '=%', '=_'], $search) . '%';
+
+        return (int) db_value(
+            'SELECT COUNT(*) FROM `users` WHERE (`name` LIKE ? ESCAPE \'=\' OR `email` LIKE ? ESCAPE \'=\')',
+            [$q, $q],
+            0
+        );
+    }
+
+    /** @param array<string,mixed> $data */
+    public function updateUser(int $id, array $data): bool
+    {
+        $name = trim((string) ($data['name'] ?? ''));
+        $email = self::normalizeEmail((string) ($data['email'] ?? ''));
+        $role = (string) ($data['role'] ?? 'user');
+        $this->assertUserInput($name, $email, $role);
+        if ($this->emailExists($email, $id)) {
+            throw new DuplicateEmailException('That email address is already registered.');
+        }
+
+        $payload = [
+            'name' => $name,
+            'email' => $email,
+            'role' => $role,
+            'is_active' => !empty($data['is_active']) ? 1 : 0,
+        ];
+        $password = (string) ($data['password'] ?? '');
+        if ($password !== '') {
+            $payload['password_hash'] = $this->passwordHashFrom(['password' => $password]);
+        }
+
+        return db_update('users', $payload, ['id' => $id]) > 0;
+    }
+
+    public function countActiveAdmins(?int $ignoreId = null): int
+    {
+        if ($ignoreId === null) {
+            return (int) db_value('SELECT COUNT(*) FROM `users` WHERE `role` = \'admin\' AND `is_active` = 1', [], 0);
+        }
+
+        return (int) db_value(
+            'SELECT COUNT(*) FROM `users` WHERE `role` = \'admin\' AND `is_active` = 1 AND `id` <> ?',
+            [$ignoreId],
+            0
+        );
+    }
+
     private function passwordHashFrom(array $data): string
     {
         if (isset($data['password'])) {

@@ -141,6 +141,34 @@ final class EventRepository extends BaseRepository
     }
 
     /**
+     * Create or update the event-specific row for an existing content row.
+     *
+     * @param array<string,mixed> $data starts_at, ends_at, location
+     */
+    public function save(int $contentId, array $data): void
+    {
+        $startsAt = (string) ($data['starts_at'] ?? '');
+        if ($startsAt === '') {
+            throw new InvalidArgumentException('زمان شروع رویداد الزامی است.');
+        }
+        $endsAt = (string) ($data['ends_at'] ?? '');
+        if ($endsAt !== '' && $endsAt < $startsAt) {
+            throw new InvalidArgumentException('زمان پایان نمی‌تواند قبل از شروع باشد.');
+        }
+        $payload = [
+            'starts_at' => $startsAt,
+            'ends_at' => $endsAt !== '' ? $endsAt : null,
+            'location' => trim((string) ($data['location'] ?? '')) ?: null,
+        ];
+        $exists = (int) db_value('SELECT COUNT(*) FROM `events` WHERE `content_id` = ?', [$contentId], 0) > 0;
+        if ($exists) {
+            db_update('events', $payload, ['content_id' => $contentId]);
+            return;
+        }
+        db_insert('events', $payload + ['content_id' => $contentId, 'content_type' => 'event']);
+    }
+
+    /**
      * Update the event-specific columns.
      *
      * @param array<string,mixed> $data starts_at, ends_at, location

@@ -99,6 +99,31 @@ if (!function_exists('asset')) {
     }
 }
 
+if (!function_exists('absolute_url')) {
+    /**
+     * Absolute public URL for SEO metadata, sitemap and JSON-LD.
+     */
+    function absolute_url(string $path = ''): string
+    {
+        if (preg_match('#^https?://#i', $path) === 1) {
+            return $path;
+        }
+        $public = url($path);
+        if (preg_match('#^https?://#i', $public) === 1) {
+            return $public;
+        }
+        $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+        $host = preg_replace('/[^A-Za-z0-9.:-]/', '', $host) ?? '';
+        if ($host === '') {
+            return $public;
+        }
+        $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+        $scheme = ($https !== '' && $https !== 'off' && $https !== '0') || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443 ? 'https' : 'http';
+
+        return $scheme . '://' . $host . $public;
+    }
+}
+
 if (!function_exists('redirect')) {
     /**
      * Send a redirect and stop execution.
@@ -248,6 +273,74 @@ if (!function_exists('content_type_plural_label')) {
         ];
 
         return $map[$type] ?? $type;
+    }
+}
+
+if (!function_exists('organization_json_ld')) {
+    /** Organization schema for the school/site. */
+    function organization_json_ld(): array
+    {
+        return [
+            '@context' => 'https://schema.org',
+            '@type' => 'EducationalOrganization',
+            'name' => (string) Config::get('app.name'),
+            'url' => absolute_url('/'),
+            'logo' => absolute_url('/assets/img/logo.svg'),
+            'description' => (string) Config::get('app.description'),
+            'inLanguage' => 'fa',
+        ];
+    }
+}
+
+if (!function_exists('content_json_ld')) {
+    /**
+     * Schema.org JSON-LD for a public content detail page.
+     *
+     * @param array<string,mixed> $item
+     */
+    function content_json_ld(array $item, string $type): array
+    {
+        $schemaType = [
+            'news' => 'NewsArticle',
+            'article' => 'Article',
+            'report' => 'Article',
+            'event' => 'Event',
+            'book' => 'Book',
+            'lesson' => 'LearningResource',
+            'research' => 'ScholarlyArticle',
+        ][$type] ?? 'Article';
+        $url = content_url($type, (string) ($item['slug'] ?? ''));
+        $data = [
+            '@context' => 'https://schema.org',
+            '@type' => $schemaType,
+            'inLanguage' => 'fa',
+            'mainEntityOfPage' => absolute_url($url),
+            'url' => absolute_url($url),
+            'headline' => (string) ($item['title'] ?? ''),
+            'name' => (string) ($item['title'] ?? ''),
+            'description' => excerpt((string) ($item['summary'] ?? $item['body'] ?? ''), 220),
+            'datePublished' => !empty($item['published_at']) ? date(DATE_ATOM, strtotime((string) $item['published_at'])) : null,
+            'dateModified' => !empty($item['updated_at']) ? date(DATE_ATOM, strtotime((string) $item['updated_at'])) : null,
+            'publisher' => organization_json_ld(),
+        ];
+        $cover = media_url((string) ($item['cover_path'] ?? ''));
+        if ($cover !== '') {
+            $data['image'] = absolute_url($cover);
+        }
+        if (!empty($item['author'])) {
+            $data['author'] = ['@type' => 'Person', 'name' => (string) $item['author']];
+        }
+        if ($type === 'event') {
+            $data['startDate'] = !empty($item['starts_at']) ? date(DATE_ATOM, strtotime((string) $item['starts_at'])) : null;
+            if (!empty($item['ends_at'])) {
+                $data['endDate'] = date(DATE_ATOM, strtotime((string) $item['ends_at']));
+            }
+            if (!empty($item['location'])) {
+                $data['location'] = ['@type' => 'Place', 'name' => (string) $item['location']];
+            }
+        }
+
+        return array_filter($data, static fn (mixed $value): bool => $value !== null && $value !== '');
     }
 }
 

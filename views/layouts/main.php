@@ -26,9 +26,9 @@ $pageTitle = (isset($title) && (string) $title !== '') ? $title . ' | ' . $appNa
 $description = (string) ($metaDescription ?? Config::get('app.description'));
 $authenticated = function_exists('isAuthenticated') && isAuthenticated();
 $logoutCsrfField = $authenticated && function_exists('csrf_field') ? csrf_field() : '';
-$canonical = url(current_path());
+$canonical = absolute_url(current_path());
 $ogType = (string) ($ogType ?? 'website');
-$ogImage = isset($ogImage) && (string) $ogImage !== '' ? (string) $ogImage : '';
+$ogImage = isset($ogImage) && (string) $ogImage !== '' ? absolute_url((string) $ogImage) : absolute_url('/assets/img/og-logo.svg');
 $noindex = !empty($noindex);
 $activePath = current_path();
 
@@ -78,12 +78,11 @@ $is_active = static function (string $path) use ($activePath): bool {
     <meta property="og:type" content="<?= e($ogType) ?>">
     <meta property="og:url" content="<?= e($canonical) ?>">
     <meta property="og:locale" content="fa_IR">
-    <?php if ($ogImage !== ''): ?>
     <meta property="og:image" content="<?= e($ogImage) ?>">
     <meta name="twitter:card" content="summary_large_image">
-    <?php else: ?>
-    <meta name="twitter:card" content="summary">
-    <?php endif; ?>
+    <meta name="theme-color" content="#145c49">
+    <link rel="icon" type="image/svg+xml" href="<?= e(asset('img/favicon.svg')) ?>">
+    <link rel="apple-touch-icon" href="<?= e(asset('img/logo.svg')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/main.css')) ?>">
     <?php if (!empty($jsonLd) && is_array($jsonLd)): ?>
     <script type="application/ld+json"><?= json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
@@ -93,9 +92,12 @@ $is_active = static function (string $path) use ($activePath): bool {
 <a class="skip-link" href="#main">پرش به محتوای اصلی</a>
 <header class="site-header">
     <div class="container header-inner">
-        <a class="brand" href="<?= e(url('/')) ?>">
-            <span class="brand-mark" aria-hidden="true">ج</span>
-            <span class="brand-name"><?= e($appName) ?></span>
+        <a class="brand" href="<?= e(url('/')) ?>" aria-label="<?= e($appName) ?>">
+            <img class="brand-logo" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="44" height="44" aria-hidden="true">
+            <span class="brand-copy">
+                <span class="brand-name"><?= e($appName) ?></span>
+                <span class="brand-tagline">مدرسه و پایگاه آموزشی</span>
+            </span>
         </a>
 
         <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" aria-label="باز و بسته کردن منو">
@@ -124,6 +126,7 @@ $is_active = static function (string $path) use ($activePath): bool {
                 </form>
             <?php endif; ?>
         </nav>
+        <button class="nav-overlay" type="button" aria-label="بستن منو" hidden></button>
     </div>
 </header>
 
@@ -136,7 +139,7 @@ $is_active = static function (string $path) use ($activePath): bool {
 <footer class="site-footer">
     <div class="container footer-grid">
         <div class="footer-col footer-about">
-            <p class="footer-brand"><?= e($appName) ?></p>
+            <p class="footer-brand"><img src="<?= e(asset('img/logo.svg')) ?>" alt="" width="38" height="38" aria-hidden="true"> <span><?= e($appName) ?></span></p>
             <p><?= e((string) Config::get('app.description')) ?></p>
         </div>
         <nav class="footer-col" aria-label="بخش‌های اصلی">

@@ -3,7 +3,7 @@
 # Code execution is never allowed in this directory.
 # =============================================================
 
-Options -ExecCGI
+Options -Indexes -ExecCGI
 
 # Disable the PHP engine in this directory (Apache + mod_php)
 <IfModule mod_php.c>

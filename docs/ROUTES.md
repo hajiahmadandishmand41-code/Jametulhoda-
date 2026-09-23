@@ -51,7 +51,7 @@
 >   حالت خالی (200) تنزل می‌کنند — مانند صفحهٔ خانه.
 > - صفحات Phase 6 از همان الگوی SEO فاز ۵ استفاده می‌کنند: title/description،
 >   canonical، Open Graph و JSON-LD (`Book`, `LearningResource`, `ScholarlyArticle`).
-> - همهٔ مسیرهای مدیریتی فقط `admin` هستند و همهٔ تغییرات توکن CSRF دارند.
+> - مسیرهای مدیریت محتوا/رسانه/موضوعات برای `editor` و `admin` هستند؛ مدیریت کاربران فقط برای `admin` است و همهٔ تغییرات توکن CSRF دارند.
 
 ## Routeهای ثبت‌شده (فقط در `router.php`)
 
@@ -62,14 +62,17 @@
 | POST | `/login` | login و redirect امن محلی | 303 / 422 / 403 |
 | POST | `/logout` | حذف session و redirect خانه | 303 |
 | GET | `/logout` | ثبت نشده؛ logout نمی‌کند | 404 |
-| GET | `/admin` | داشبورد مدیریت (فقط admin) | 200 / 302 / 403 |
+| GET | `/admin` | داشبورد مدیریت (`editor`/`admin`) | 200 / 302 / 403 |
+| GET | `/admin/content` | مدیریت همهٔ محتوا، فیلتر و عملیات انتشار/بایگانی/حذف | 200 / 302 / 403 |
+| GET/POST | `/admin/media` | کتابخانه رسانه و آپلود امن | 200 / 303 / 403 / 422 |
+| GET/POST | `/admin/topics` | مدیریت موضوعات | 200 / 303 / 403 / 422 |
+| GET/POST | `/admin/users` | مدیریت کاربران (فقط `admin`) | 200 / 303 / 403 |
 | — | هر مسیر نامشخص | `pages/404.php` | 404 |
 | غیر-GET | مسیر شناخته‌شده (مثلاً `POST /`) | متن ساده | 405 |
 
 `POST /login` و `POST /logout` قبل از هر تغییر state توکن CSRF session-backed را
 بررسی می‌کنند. پیام خطای credentials برای unknown email، wrong password و
-inactive account عمداً یکسان است. در Phase 4.1 فقط داشبورد `/admin` فعال است؛
-بخش‌های تحریریه و CRUD هنوز route ندارند.
+inactive account عمداً یکسان است. مسیرهای CRUD مدیریت محتوا، دانش، رسانه، موضوعات و کاربران در همین Route table ثبت شده‌اند.
 
 ## قوانین سرو URL
 

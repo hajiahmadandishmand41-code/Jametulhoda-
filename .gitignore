@@ -1,5 +1,6 @@
 # Environment-specific config (copy config/local.example.php -> config/local.php)
 config/local.php
+config/installed.lock
 
 # Logs
 logs/*
@@ -15,6 +16,7 @@ uploads/media/*
 !uploads/audio/.gitkeep
 !uploads/video/.gitkeep
 !uploads/documents/.gitkeep
+!uploads/media/.gitkeep
 
 # Composer
 vendor/
