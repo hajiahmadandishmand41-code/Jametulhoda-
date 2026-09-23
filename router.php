@@ -1665,21 +1665,13 @@ function define_routes(Router $router): void
             redirect('/admin/' . $sectionPath, 303);
         });
 
-        // -------- view (same form, existing item) --------
-        $router->get('/admin/' . $sectionPath . '/{id}', static function (array $params) use ($renderForm, $sectionPath, $section, $type, $loadItem): void {
-            $repo = match ($type) {
-                'book' => new BookRepository(),
-                'lesson' => new LessonRepository(),
-                default => new ResearchRepository(),
-            };
-            $item = $loadItem($repo, (int) $params['id']);
-            if (!$item) { return; }
-            $renderForm($sectionPath, $section, [
-                'title' => 'مشاهده ' . $section['singular'],
-                'action' => url('/admin/' . $sectionPath . '/edit/' . (int) $item['id']),
-                'item' => $item,
-                'attachedMedia' => (new MediaRepository())->forContent((int) $item['id']),
-            ]);
+        // Keep the short legacy URL useful without presenting an editable
+        // form under a misleading "view" label.
+        $router->get('/admin/' . $sectionPath . '/{id}', static function (array $params) use ($adminOnly, $sectionPath): void {
+            if (!$adminOnly()) { admin_forbidden(); return; }
+            $id = (int) ($params['id'] ?? 0);
+            if ($id <= 0) { admin_not_found(); return; }
+            redirect('/admin/' . $sectionPath . '/edit/' . $id);
         });
 
         // -------- publication state --------
