@@ -137,8 +137,21 @@ $statusOptions = ['draft' => 'پیش‌نویس', 'published' => 'منتشرشد
 </form>
 
 <?php if ($isEdit): ?>
-<form class="admin-form inline-form" method="post" action="<?= e(url('/admin/' . $sectionPath . '/' . (int) $item['id'] . '/delete')) ?>" data-confirm="حذف قطعی این مورد؟">
-    <?= csrf_field() ?>
-    <button class="admin-button-danger" type="submit">حذف این مورد</button>
-</form>
+<div class="admin-actions-row" aria-label="عملیات وضعیت محتوا">
+    <?php if (($item['status'] ?? '') !== 'published'): ?>
+    <form class="inline-form" method="post" action="<?= e(url('/admin/' . $sectionPath . '/' . (int) $item['id'] . '/publish')) ?>">
+        <?= csrf_field() ?><button class="admin-button" type="submit">انتشار</button>
+    </form>
+    <?php else: ?>
+    <form class="inline-form" method="post" action="<?= e(url('/admin/' . $sectionPath . '/' . (int) $item['id'] . '/unpublish')) ?>">
+        <?= csrf_field() ?><button class="admin-button admin-button-secondary" type="submit">بازگشت به پیش‌نویس</button>
+    </form>
+    <?php endif; ?>
+    <form class="inline-form" method="post" action="<?= e(url('/admin/' . $sectionPath . '/' . (int) $item['id'] . '/archive')) ?>">
+        <?= csrf_field() ?><button class="admin-button admin-button-secondary" type="submit">بایگانی</button>
+    </form>
+    <form class="inline-form" method="post" action="<?= e(url('/admin/' . $sectionPath . '/' . (int) $item['id'] . '/delete')) ?>" data-confirm="حذف قطعی این مورد؟">
+        <?= csrf_field() ?><button class="admin-button-danger" type="submit">حذف این مورد</button>
+    </form>
+</div>
 <?php endif; ?>

@@ -1682,6 +1682,33 @@ function define_routes(Router $router): void
             ]);
         });
 
+        // -------- publication state --------
+        foreach (['publish', 'unpublish', 'archive'] as $stateAction) {
+            $router->add('POST', '/admin/' . $sectionPath . '/{id}/' . $stateAction, static function (array $params) use ($adminOnly, $sectionPath, $type, $stateAction): void {
+                if (!$adminOnly()) { admin_forbidden(); return; }
+                if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+                    admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return;
+                }
+                $repo = new ContentRepository();
+                $id = (int) ($params['id'] ?? 0);
+                $item = $id > 0 ? $repo->find($id) : null;
+                if (!$item || (string) $item['content_type'] !== $type) {
+                    admin_not_found('محتوای این بخش پیدا نشد.'); return;
+                }
+                if ($stateAction === 'publish') {
+                    if (trim((string) ($item['title'] ?? '')) === '' || trim((string) ($item['body'] ?? '')) === '') {
+                        admin_validation_error('برای انتشار، عنوان و متن این مورد را تکمیل کنید.'); return;
+                    }
+                    $repo->publish($id);
+                } elseif ($stateAction === 'unpublish') {
+                    $repo->unpublish($id);
+                } else {
+                    $repo->update($id, ['status' => 'archived']);
+                }
+                redirect('/admin/' . $sectionPath, 303);
+            });
+        }
+
         // -------- delete --------
         $router->add('POST', '/admin/' . $sectionPath . '/{id}/delete', static function (array $params) use ($adminOnly, $sectionPath, $type): void {
             if (!$adminOnly()) { admin_forbidden(); return; }
