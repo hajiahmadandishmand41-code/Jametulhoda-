@@ -16,6 +16,7 @@ declare(strict_types=1);
  */
 
 require __DIR__ . '/app/Helpers/functions.php';
+require __DIR__ . '/app/Helpers/admin.php';
 require __DIR__ . '/config/config.php';
 require __DIR__ . '/app/Router.php';
 require __DIR__ . '/config/database.php';
@@ -23,6 +24,9 @@ require __DIR__ . '/app/Services/SessionManager.php';
 require __DIR__ . '/app/Services/Csrf.php';
 require __DIR__ . '/app/Repositories/BaseRepository.php';
 require __DIR__ . '/app/Repositories/UserRepository.php';
+require __DIR__ . '/app/Repositories/ContentRepository.php';
+require __DIR__ . '/app/Repositories/MediaRepository.php';
+require __DIR__ . '/app/Repositories/TopicRepository.php';
 require __DIR__ . '/app/Services/LoginRateLimiter.php';
 require __DIR__ . '/app/Services/AuthService.php';
 require __DIR__ . '/app/Middleware/AuthGuards.php';

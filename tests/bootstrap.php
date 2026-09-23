@@ -14,6 +14,7 @@ declare(strict_types=1);
 define('BASE_PATH', dirname(__DIR__));
 
 require dirname(__DIR__) . '/app/Helpers/functions.php';
+require dirname(__DIR__) . '/app/Helpers/admin.php';
 require dirname(__DIR__) . '/config/config.php';
 require dirname(__DIR__) . '/app/Router.php';
 require dirname(__DIR__) . '/config/database.php';
@@ -21,6 +22,9 @@ require dirname(__DIR__) . '/app/Services/SessionManager.php';
 require dirname(__DIR__) . '/app/Services/Csrf.php';
 require dirname(__DIR__) . '/app/Repositories/BaseRepository.php';
 require dirname(__DIR__) . '/app/Repositories/UserRepository.php';
+require dirname(__DIR__) . '/app/Repositories/ContentRepository.php';
+require dirname(__DIR__) . '/app/Repositories/MediaRepository.php';
+require dirname(__DIR__) . '/app/Repositories/TopicRepository.php';
 require dirname(__DIR__) . '/app/Services/LoginRateLimiter.php';
 require dirname(__DIR__) . '/app/Services/AuthService.php';
 require dirname(__DIR__) . '/app/Middleware/AuthGuards.php';

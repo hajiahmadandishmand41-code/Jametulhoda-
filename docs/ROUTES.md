@@ -9,13 +9,14 @@
 | POST | `/login` | login و redirect امن محلی | 303 / 422 / 403 |
 | POST | `/logout` | حذف session و redirect خانه | 303 |
 | GET | `/logout` | ثبت نشده؛ logout نمی‌کند | 404 |
+| GET | `/admin` | داشبورد مدیریت (فقط admin) | 200 / 302 / 403 |
 | — | هر مسیر نامشخص | `pages/404.php` | 404 |
 | غیر-GET | مسیر شناخته‌شده (مثلاً `POST /`) | متن ساده | 405 |
 
 `POST /login` و `POST /logout` قبل از هر تغییر state توکن CSRF session-backed را
 بررسی می‌کنند. پیام خطای credentials برای unknown email، wrong password و
-inactive account عمداً یکسان است. Dashboard، routeهای admin و CRUD در Phase 3
-وجود ندارند و برای Phase 4 باقی می‌مانند.
+inactive account عمداً یکسان است. در Phase 4.1 فقط داشبورد `/admin` فعال است؛
+بخش‌های تحریریه و CRUD هنوز route ندارند.
 
 ## قوانین سرو URL
 
@@ -26,7 +27,7 @@ inactive account عمداً یکسان است. Dashboard، routeهای admin و 
 | `//` ، `////` | 200 — نرمال‌سازی به `/` | 200 |
 | `/assets/*` | سرو مستقیم فایل | سرو از طریق index.php (فقط assets/uploads) |
 | `/config/…` ، `/app/…` ، `/pages/…` ، `/tests/…` ، `/database/…` ، `/docs/…` ، `/logs/…` ، dotfiles | 403 (بلاک در .htaccess) | 404 (پاس‌فال‌ترینگ و روتر) |
-| `/admin/…` | 403 (`Require all denied` تا Phase 4) | 404 |
+| `/admin` | مهمان: redirect به login؛ user/editor: 403؛ admin: 200 | 404 (بدون front controller) |
 | `…` (نامشخص) | 404 — صفحه‌ی 404 | 404 — صفحه‌ی 404 |
 
 > تفاوت 403/404 برای پوشه‌های داخلی بین Apache و سرور داخلی PHP طبیعی است؛

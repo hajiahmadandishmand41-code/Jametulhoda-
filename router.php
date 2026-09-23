@@ -83,6 +83,39 @@ function define_routes(Router $router): void
         redirect($redirectTarget, 303);
     });
 
+    $router->get('/admin', static function (): void {
+        if (!isAuthenticated()) {
+            redirect('/login?redirect=/admin');
+        }
+        if (!requireRole('admin')) {
+            http_response_code(403);
+            echo 'دسترسی مجاز نیست.';
+            return;
+        }
+
+        $contents = new ContentRepository();
+        admin_view('dashboard', [
+            'title' => 'داشبورد',
+            'stats' => [
+                'total' => $contents->count(),
+                'published' => $contents->count(['status' => 'published']),
+                'draft' => $contents->count(['status' => 'draft']),
+                'article' => $contents->count(['content_type' => 'article']),
+                'news' => $contents->count(['content_type' => 'news']),
+                'event' => $contents->count(['content_type' => 'event']),
+                'report' => $contents->count(['content_type' => 'report']),
+                'media' => (new MediaRepository())->count(),
+                'topics' => (new TopicRepository())->count(['is_active' => 1]),
+            ],
+            'typeLabels' => [
+                'article' => 'مقالات',
+                'news' => 'خبرها',
+                'event' => 'رویدادها',
+                'report' => 'گزارش‌ها',
+            ],
+        ]);
+    });
+
     $router->add('POST', '/logout', static function (): void {
         $csrf = is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null;
         if (!csrf_verify($csrf)) {
