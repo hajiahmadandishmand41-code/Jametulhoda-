@@ -11,8 +11,8 @@ $navigation = [
     ['label' => 'مقالات', 'icon' => '▥'],
     ['label' => 'گزارش‌ها', 'icon' => '▦'],
     ['label' => 'رویدادها', 'icon' => '◷'],
-    ['label' => 'رسانه‌ها', 'icon' => '◉'],
-    ['label' => 'موضوعات', 'icon' => '◆'],
+    ['label' => 'رسانه‌ها', 'icon' => '◉', 'href' => '/admin/media'],
+    ['label' => 'موضوعات', 'icon' => '◆', 'href' => '/admin/topics'],
     ['label' => 'کاربران', 'icon' => '♙'],
     ['label' => 'تنظیمات', 'icon' => '⚙'],
 ];
