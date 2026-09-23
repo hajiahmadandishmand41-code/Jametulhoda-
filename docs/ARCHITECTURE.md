@@ -1,4 +1,4 @@
-# معماری — Phase 1 (هسته)
+# معماری — Phase 1 (هسته) + Phase 2 (داده)
 
 سایت فارسی، RTL، بدون فریمورک؛ با PHP خام برای Shared Hosting / InfinityFree.
 
@@ -25,13 +25,14 @@ Browser
 | `config/` | تنظیمات (پایه + `local.php` خارج از Git) و اتصال DB |
 | `app/Helpers/` | توابع مشترک (`e`, `url`, `asset`, `view`, `log_error`, ...) |
 | `app/Router.php` | کلاس Router |
-| `app/Controllers, Models, Services, Repositories, Middleware` | آماده برای فازهای بعدی (Phase 1 خالی هستند) |
+| `app/Repositories/` | لایه‌ی داده‌ی Phase 2 (Content, Topic, Media, Report, Event + Base) |
+| `app/Controllers, Models, Services, Middleware` | آماده برای فازهای بعدی (هنوز خالی) |
 | `pages/` | نمای هر صفحه (فقط HTML — بدون `<html>`) |
 | `views/layouts/` | Layout اصلی |
 | `views/components, partials` | آماده برای فازهای بعدی |
 | `assets/` | css/js/img/fonts |
 | `uploads/` | رسانه‌های آپلودی (Phase 3) — اجرای کد در آن ممنوع |
-| `database/` | `schema.sql` و `seed.sql` (Phase 1 خالی) |
+| `database/` | `schema.sql` (ساختار واقعی Phase 2) و `seed.sql` (داده‌ی آزمایشی) |
 | `admin/` | پنل مدیریت (Phase 4) — فعلاً `Require all denied` |
 | `tests/` | تست‌های خودکار + چک‌لیست دستی |
 | `docs/` | مستندات |
@@ -43,6 +44,9 @@ Browser
 2. **Escaping:** هر خروجی پویا با `e()` escape می‌شود (XSS baseline).
 3. **URLها:** فقط با `url()` / `asset()` ساخته می‌شوند (یک منبع حقیقت).
 4. **دیتابیس:** فقط با `db()` و Prepared Statements؛ اتصال lazy است.
+   دسترسی به داده از طریق helperهای `db_*()` و Repositoryها انجام می‌شود؛
+   هیچ مقداری داخل متن SQL درج نمی‌شود و نام جدول/ستون از ورودی کاربر نمی‌آید
+   (جزئیات در `docs/DATABASE.md`).
 5. **`dispatch()` آخرین statement از `index.php` است.**
 6. **Layout:** `views/layouts/main.php` مالک `<html>…<body>` است؛ صفحات فقط محتوا می‌دهند.
 

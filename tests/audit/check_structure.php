@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 /**
- * Phase 1 — Check 6: project structure audit.
+ * Check 6: project structure audit (Phase 1 core + Phase 2 data layer).
  *
  * Verifies:
  *  1. every directory from the blueprint exists
- *  2. every Phase 1 file exists
+ *  2. every Phase 1 + Phase 2 file exists
  *  3. NO later-phase files were created prematurely
  *
  * Usage: php tests/audit/check_structure.php
@@ -45,6 +45,21 @@ $expectedFiles = [
     'tests/audit/check_links.php', 'tests/audit/check_structure.php',
     'tests/audit/http_test.sh', 'tests/audit/apache_test.sh',
     'docs/ARCHITECTURE.md', 'docs/ROUTES.md', 'docs/DATABASE.md', 'docs/TESTING.md',
+
+    // --- Phase 2: database schema + data layer ---
+    'app/Helpers/schema.php',
+    'app/Repositories/BaseRepository.php',
+    'app/Repositories/ContentRepository.php',
+    'app/Repositories/TopicRepository.php',
+    'app/Repositories/MediaRepository.php',
+    'app/Repositories/ReportRepository.php',
+    'app/Repositories/EventRepository.php',
+    'tests/lib/SchemaSandbox.php',
+    'tests/integration/SchemaTest.php',
+    'tests/integration/DataLayerTest.php',
+    'tests/integration/SeedTest.php',
+    'tests/security/SqlInjectionTest.php',
+    'tests/security/DatabaseSecurityTest.php',
 ];
 
 // Files that belong to later phases and must NOT exist yet
@@ -80,13 +95,29 @@ foreach ($forbiddenFiles as $file) {
     }
 }
 
-// Later-phase code must not have appeared in the app layers yet
-foreach (['Controllers', 'Models', 'Services', 'Repositories', 'Middleware'] as $layer) {
+// Later-phase code must not have appeared in the app layers yet.
+// app/Repositories is intentionally populated in Phase 2; the rest stay empty
+// until their own phase (Controllers/Services in the CRUD phases, Models and
+// Middleware with authentication).
+foreach (['Controllers', 'Models', 'Services', 'Middleware'] as $layer) {
     $phpFiles = glob($root . "/app/{$layer}/*.php") ?: [];
     if ($phpFiles !== []) {
         $premature++;
-        echo "[FAIL]    app/{$layer} should be empty in Phase 1: "
+        echo "[FAIL]    app/{$layer} must stay empty until its own phase: "
             . implode(', ', array_map('basename', $phpFiles)) . "\n";
+    }
+}
+
+// Phase 2 owns exactly these repositories — anything else is a later phase
+// arriving early (e.g. a UserRepository belongs to authentication).
+$allowedRepositories = [
+    'BaseRepository.php', 'ContentRepository.php', 'TopicRepository.php',
+    'MediaRepository.php', 'ReportRepository.php', 'EventRepository.php',
+];
+foreach (glob($root . '/app/Repositories/*.php') ?: [] as $repository) {
+    if (!in_array(basename($repository), $allowedRepositories, true)) {
+        $premature++;
+        echo '[FAIL]    app/Repositories/' . basename($repository) . " is not part of Phase 2\n";
     }
 }
 
