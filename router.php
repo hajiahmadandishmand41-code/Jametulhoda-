@@ -46,7 +46,7 @@ function define_routes(Router $router): void
         }
         view('home', [
             'title' => '',
-            'metaDescription' => (string) Config::get('app.description'),
+            'metaDescription' => (string) site_setting('description'),
             'featured' => $news[0] ?? null,
             'secondary' => array_slice($news, 1, 4),
             'latest' => array_slice($news, 1, 6),
@@ -646,9 +646,10 @@ function define_routes(Router $router): void
         header('Content-Type: text/plain; charset=UTF-8');
         echo "User-agent: *\n";
         echo "Allow: /\n";
-        echo "Disallow: /admin\n";
-        echo "Disallow: /login\n";
-        echo "Disallow: /search\n";
+        $base = rtrim(site_base_path(), '/');
+        foreach (['/admin', '/login', '/search'] as $privatePath) {
+            echo 'Disallow: ' . $base . $privatePath . "\n";
+        }
         echo 'Sitemap: ' . absolute_url('/sitemap.xml') . "\n";
     });
 
@@ -665,8 +666,64 @@ function define_routes(Router $router): void
             redirect('/login?redirect=' . rawurlencode(current_path()));
         }
 
-        return requireRole('admin');
+        if (!requireRole('admin')) { return false; }
+        // A revoked/deleted admin session must not retain settings/users privileges.
+        $user = currentUser();
+        $fresh = (new UserRepository())->find((int) ($user['id'] ?? 0));
+        if (!$fresh || $fresh['role'] !== 'admin' || !(bool) $fresh['is_active']) {
+            SessionManager::forgetAuthentication();
+            return false;
+        }
+        return true;
     };
+    $router->add('POST', '/admin/settings/upgrade', static function () use ($superAdminOnly): void {
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+            admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست.', '/admin/settings');
+            return;
+        }
+        try {
+            installer_apply_migrations(db());
+            SiteSettings::resetCache();
+        } catch (Throwable $e) {
+            log_error('Settings migration failed: ' . get_class($e));
+            admin_status(503, 'ارتقای دیتابیس انجام نشد', 'اتصال و مجوزهای دیتابیس و فایل‌های migration را بررسی کنید. هیچ رمز یا متن خام خطایی نمایش داده نمی‌شود.', '/admin/settings');
+            return;
+        }
+        redirect('/admin/settings', 303);
+    });
+
+    $router->get('/admin/settings', static function () use ($superAdminOnly): void {
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        admin_view('settings', ['title' => 'تنظیمات سایت', 'settings' => [
+            'name' => site_setting('name'), 'description' => site_setting('description'),
+        ], 'saved' => ($_GET['saved'] ?? '') === '1', 'errors' => []]);
+    });
+
+    $router->add('POST', '/admin/settings', static function () use ($superAdminOnly): void {
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+            admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست یا حجم درخواست بیش از حد مجاز هاست است. صفحه را تازه‌سازی کنید.', '/admin/settings');
+            return;
+        }
+        try {
+            SiteSettings::save($_POST, $_FILES);
+            $errors = [];
+        } catch (InvalidArgumentException $e) {
+            http_response_code(422);
+            $errors = [$e->getMessage()];
+        } catch (Throwable $e) {
+            log_error('Site settings save failed: ' . get_class($e));
+            http_response_code(503);
+            $errors = ['ذخیره انجام نشد. اتصال دیتابیس، اجرای migration تنظیمات و دسترسی نوشتن uploads/site را بررسی کنید.'];
+        }
+        if ($errors === []) { redirect('/admin/settings?saved=1', 303); }
+        admin_view('settings', ['title' => 'تنظیمات سایت', 'settings' => [
+            'name' => is_string($_POST['name'] ?? null) ? $_POST['name'] : site_setting('name'),
+            'description' => is_string($_POST['description'] ?? null) ? $_POST['description'] : site_setting('description'),
+        ], 'saved' => false, 'errors' => $errors]);
+    });
+
     foreach (['news'=>'خبرها','article'=>'مقالات','report'=>'گزارش‌ها','event'=>'رویدادها'] as $contentAlias => $contentAliasLabel) {
         // Correct plural section path per alias (bug fix: news used to
         // register the broken URL /admin/newss).
@@ -924,6 +981,11 @@ function define_routes(Router $router): void
 
     $router->get('/admin/content/new', static function () use ($adminOnly, $contentFormData): void {
         if (!$adminOnly()) { admin_forbidden(); return; }
+        $knowledgePath = ['book' => 'books', 'lesson' => 'lessons', 'research' => 'research'];
+        $requestedType = is_string($_GET['type'] ?? null) ? $_GET['type'] : '';
+        if (isset($knowledgePath[$requestedType])) {
+            redirect('/admin/' . $knowledgePath[$requestedType] . '/new');
+        }
         $type = in_array($_GET['type'] ?? '', ['news', 'article', 'report', 'event'], true) ? (string) $_GET['type'] : 'news';
         admin_view('content_form', $contentFormData(['content_type' => $type, 'status' => 'draft']) + [
             'title' => 'محتوای جدید',
@@ -956,6 +1018,10 @@ function define_routes(Router $router): void
         $repo = new ContentRepository();
         $item = $repo->find((int) $params['id']);
         if (!$item) { admin_not_found(); return; }
+        $knowledgePath = ['book' => 'books', 'lesson' => 'lessons', 'research' => 'research'];
+        if (isset($knowledgePath[$item['content_type']])) {
+            redirect('/admin/' . $knowledgePath[$item['content_type']] . '/edit/' . (int) $item['id']);
+        }
         if ($item['content_type'] === 'event') { $item = (new EventRepository())->find((int) $item['id']) ?? $item; }
         if ($item['content_type'] === 'report') { $item = (new ReportRepository())->find((int) $item['id']) ?? $item; }
         admin_view('content_form', $contentFormData($item) + ['title' => 'ویرایش محتوا', 'action' => url('/admin/content/edit/' . (int) $item['id']), 'item' => $item]);
@@ -1036,7 +1102,7 @@ function define_routes(Router $router): void
         $where = $type === '' ? '' : ' WHERE `media_type` = ?';
         $params = $type === '' ? [] : [$type];
         $media = db_all(
-            'SELECT m.*, (SELECT COUNT(*) FROM `content_media` cm WHERE cm.`media_id` = m.`id`) + (SELECT COUNT(*) FROM `report_images` ri WHERE ri.`media_id` = m.`id`) AS `usage_count`
+            'SELECT m.*, (SELECT COUNT(*) FROM `content_media` cm WHERE cm.`media_id` = m.`id`) + (SELECT COUNT(*) FROM `report_images` ri WHERE ri.`media_id` = m.`id`) + (SELECT COUNT(*) FROM `contents` c WHERE c.`cover_media_id` = m.`id`) AS `usage_count`
              FROM `media` m' . $where . ' ORDER BY m.`created_at` DESC, m.`id` DESC LIMIT 200',
             $params
         );
@@ -1084,7 +1150,7 @@ function define_routes(Router $router): void
             'video/mp4' => ['mp4', 'video', 80 * 1024 * 1024],
             'application/pdf' => ['pdf', 'document', 20 * 1024 * 1024],
         ];
-        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_string($file['tmp_name'] ?? null) || !is_string($file['name'] ?? null) || !is_uploaded_file($file['tmp_name'])) {
             admin_validation_error('فایل انتخاب‌شده کامل دریافت نشد. دوباره تلاش کنید.');
             return;
         }
@@ -1096,7 +1162,9 @@ function define_routes(Router $router): void
             return;
         }
         [$extension, $type, $maxSize] = $allowed[$mime];
-        if ($originalExt !== $extension || (int) ($file['size'] ?? 0) <= 0 || (int) $file['size'] > $maxSize) {
+        $actualSize = filesize($file['tmp_name']);
+        $extensionMatches = $originalExt === $extension || ($extension === 'jpg' && $originalExt === 'jpeg');
+        if (!$extensionMatches || $actualSize === false || $actualSize <= 0 || $actualSize > $maxSize) {
             admin_validation_error('پسوند فایل یا حجم آن با محدودیت این نوع رسانه سازگار نیست.');
             return;
         }
@@ -1118,7 +1186,7 @@ function define_routes(Router $router): void
             return;
         }
         try {
-            (new MediaRepository())->create(['media_type' => $type, 'disk_path' => 'uploads/media/' . $name, 'original_name' => basename($original), 'mime_type' => $mime, 'file_size' => (int) $file['size'], 'title' => $title, 'alt_text' => $altText]);
+            (new MediaRepository())->create(['media_type' => $type, 'disk_path' => 'uploads/media/' . $name, 'original_name' => basename($original), 'mime_type' => $mime, 'file_size' => $actualSize, 'title' => $title, 'alt_text' => $altText]);
         } catch (Throwable $e) {
             @unlink($target);
             throw $e;

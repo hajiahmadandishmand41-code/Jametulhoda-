@@ -1,0 +1,11 @@
+# Branding is raster-only. Reject every other extension, including hidden files.
+Options -Indexes -ExecCGI
+<FilesMatch "^(?![a-f0-9]{48}\.(?:png|jpg|webp)$)">
+    Require all denied
+</FilesMatch>
+<FilesMatch "\.(?:png|jpg|webp)$">
+    SetHandler default-handler
+</FilesMatch>
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+</IfModule>

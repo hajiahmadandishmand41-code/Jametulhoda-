@@ -330,3 +330,26 @@ CHECK دیتابیس روی سرورهایی که آن را enforce می‌کن�
   `users` و `login_attempts` را با backup و یک migration کنترل‌شده بررسی کنید.
 - تست‌های auth در SQLite in-memory fallback اجرا می‌شوند اگر MySQL/MariaDB
   در دسترس نباشد؛ این fallback جایگزین runtime test روی MySQL production نیست.
+
+## Site settings — 2026-09-23
+
+جدول واحد `site_settings` (InnoDB / utf8mb4_unicode_ci):
+
+| ستون | نوع | محدودیت |
+|---|---|---|
+| `setting_key` | VARCHAR(64) | PRIMARY KEY؛ هر تنظیم فقط یک ردیف |
+| `setting_value` | TEXT | NOT NULL |
+
+کلیدهای مجاز در سرویس: `name`, `description`, `logo`, `favicon`, `og_image`.
+مقادیر تصاویر مسیر نسبی `uploads/site/<48 hex>.(png|jpg|webp)` هستند، نه URL خارجی و نه فایل باینری.
+مقدار خالی تصویر یعنی پیش‌فرض. جدول فاقد credential است. نام و توضیح در نبود ردیف از Config خوانده می‌شوند.
+
+- migration: `database/migrations/2026-09-23_site_settings.sql`؛ همان تعریف در schema نصب تازه وجود دارد.
+- runner مشترک: `app/Helpers/migrations.php`، مورد استفاده Installer و ارتقای صریح admin.
+- خواندن: `SiteSettings::all()` یک SELECT در هر درخواست؛ `site_setting()` و `site_image()` مصرف‌کننده‌های مرکزی هستند.
+- ذخیره: validate همه متن‌ها/فایل‌ها، آپلود امن، تراکنش PDO، قفل ردیف MySQL، upsert کلیدهای ثابت با پارامتر، commit و سپس پاک‌سازی فایل جایگزین‌شده.
+- در خطای DB فایل‌های جدید همان درخواست پاک می‌شوند و فایل‌های قبلی دست‌نخورده می‌مانند؛ fallback سایت حتی در نبود جدول/فایل کار می‌کند.
+- پاک‌سازی best-effort است: شکست unlink یا قطع ناگهانی پردازش ممکن است فایل بدون ارجاع باقی بگذارد. فایل اجرایی تولید نمی‌شود؛ cron اجباری وجود ندارد.
+- فایل‌های تصاویر در backup uploads و ردیف‌ها در backup DB باید با هم نگهداری شوند.
+
+نصب قدیمی نیاز به حذف installed.lock یا ویرایش PHP ندارد: در تنظیمات سایت، دکمه ارتقای دیتابیس با admin و CSRF همان migrationها را اجرا می‌کند. راهنمای عملی: [BRANDING-AND-INSTALLER.md](BRANDING-AND-INSTALLER.md).

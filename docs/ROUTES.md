@@ -104,3 +104,37 @@ if (!requireRole('admin')) {
 
 `currentUser()`, `isAuthenticated()`, `requireGuest()`, `requireRole()` و
 `authorize()` در `app/Middleware/AuthGuards.php` تعریف شده‌اند.
+
+## مرجع به‌روز Admin و Branding (2026-09-23)
+
+این جدول بر توضیحات تاریخی فازهای بالا اولویت دارد. تمام مسیرها در `router.php` هستند؛ تمام POSTهای مدیریتی CSRF دارند. مهمان به login هدایت می‌شود، نقش غیرمجاز 403 می‌گیرد.
+
+| Method | Path | نقش |
+|---|---|---|
+| GET | `/admin` | editor/admin |
+| GET | `/admin/content` | editor/admin |
+| GET | `/admin/news`, `/admin/articles`, `/admin/reports`, `/admin/events` | editor/admin |
+| GET/POST | `/admin/content/new` | editor/admin |
+| GET/POST | `/admin/content/edit/{id}` | editor/admin |
+| GET | `/admin/content/{id}` | redirect به ویرایش |
+| POST | `/admin/content/{id}/publish`, `/unpublish`, `/archive`, `/delete`, `/relation` | editor/admin |
+| GET/POST | `/admin/media` | editor/admin |
+| POST | `/admin/media/{id}/delete` | editor/admin |
+| GET/POST | `/admin/topics` | editor/admin |
+| POST | `/admin/topics/{id}/edit`, `/admin/topics/{id}/delete` | editor/admin |
+| GET | `/admin/users` | فقط admin؛ POST این مسیر ثبت نشده |
+| GET/POST | `/admin/users/new`, `/admin/users/edit/{id}` | فقط admin |
+| POST | `/admin/users/{id}/delete` | فقط admin |
+| GET | `/admin/{section}` | editor/admin؛ section: books/lessons/research |
+| GET/POST | `/admin/{section}/new`, `/admin/{section}/edit/{id}` | editor/admin |
+| GET | `/admin/{section}/{id}` | redirect به ویرایش |
+| POST | `/admin/{section}/{id}/publish`, `/unpublish`, `/archive`, `/delete` | editor/admin |
+| GET | `/admin/settings` | فقط admin؛ فرم و پیش‌نمایش |
+| POST | `/admin/settings` | فقط admin؛ ذخیره نام/توضیح/سه تصویر و بازگردانی؛ 303 موفق، 422 ورودی، 403 CSRF، 503 ذخیره |
+| POST | `/admin/settings/upgrade` | فقط admin؛ ارتقای صریح با runner نصب؛ 303 موفق، 403 CSRF، 503 خطا |
+
+`GET /admin/topics/{id}/edit` فرم جدا نیست؛ ویرایش موضوع داخل فهرست است و این URL فقط POST دارد. هیچ عملیات delete/reset/publish با GET انجام نمی‌شود.
+
+فرم generic محتوا برای کتاب/درس/پژوهش به فرم تخصصی موجود هدایت می‌شود. نام و نقش admin برای تنظیمات و مدیریت کاربران علاوه بر session با رکورد فعال DB بررسی می‌شود تا session قدیمی پس از تنزل/حذف حساب مجوز نداشته باشد.
+
+تمام صفحات عمومی شامل Home، News، Articles، Reports، Events، Books، Lessons، Research، Media، Topics، Search، Login، 404 و 500 از layout مشترک و تنظیمات برند استفاده می‌کنند. Installer قبل از نصب عمداً تصویر ثابت مخزن را دارد. OG اختصاصی مطلب اولویت دارد؛ در نبود آن تصویر OG تنظیمات و سپس fallback استفاده می‌شود. مسیرها با helperهای subdirectory ساخته می‌شوند؛ robots نیز prefix نصب را رعایت می‌کند.

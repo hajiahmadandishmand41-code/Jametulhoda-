@@ -288,10 +288,10 @@ if (!function_exists('organization_json_ld')) {
         return [
             '@context' => 'https://schema.org',
             '@type' => 'EducationalOrganization',
-            'name' => (string) Config::get('app.name'),
+            'name' => (string) site_setting('name'),
             'url' => absolute_url('/'),
-            'logo' => absolute_url('/assets/img/logo.svg'),
-            'description' => (string) Config::get('app.description'),
+            'logo' => absolute_url(SiteSettings::imagePath('logo')),
+            'description' => (string) site_setting('description'),
             'inLanguage' => 'fa',
         ];
     }

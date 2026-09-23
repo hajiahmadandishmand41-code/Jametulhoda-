@@ -135,7 +135,7 @@ foreach (['Controllers', 'Models'] as $layer) {
 }
 
 $allowedServices = [
-    'AuthService.php', 'Csrf.php', 'LoginRateLimiter.php', 'SessionManager.php',
+    'AuthService.php', 'Csrf.php', 'LoginRateLimiter.php', 'SessionManager.php', 'SiteSettings.php',
 ];
 foreach (glob($root . '/app/Services/*.php') ?: [] as $service) {
     if (!in_array(basename($service), $allowedServices, true)) {
@@ -170,7 +170,7 @@ foreach (glob($root . '/app/Repositories/*.php') ?: [] as $repository) {
 
 $pages = glob($root . '/pages/*.php') ?: [];
 $allowedPages = [
-    'home.php', '404.php', 'login.php',
+    'home.php', '404.php', '500.php', 'login.php',
     // Phase 5 public content surface
     'public_listing.php', 'public_detail.php', 'topic.php', 'search.php',
     // Phase 6 knowledge & multimedia surface

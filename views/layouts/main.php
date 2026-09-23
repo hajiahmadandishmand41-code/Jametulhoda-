@@ -21,14 +21,14 @@ declare(strict_types=1);
  *    which the CSP allows as data, not executable script). Behavioural JS lives in /assets.
  */
 
-$appName = (string) Config::get('app.name');
+$appName = (string) site_setting('name');
 $pageTitle = (isset($title) && (string) $title !== '') ? $title . ' | ' . $appName : $appName;
-$description = (string) ($metaDescription ?? Config::get('app.description'));
+$description = (string) ($metaDescription ?? site_setting('description'));
 $authenticated = function_exists('isAuthenticated') && isAuthenticated();
 $logoutCsrfField = $authenticated && function_exists('csrf_field') ? csrf_field() : '';
 $canonical = absolute_url(current_path());
 $ogType = (string) ($ogType ?? 'website');
-$ogImage = isset($ogImage) && (string) $ogImage !== '' ? absolute_url((string) $ogImage) : absolute_url('/assets/img/og-logo.svg');
+$ogImage = isset($ogImage) && (string) $ogImage !== '' ? absolute_url((string) $ogImage) : absolute_url(SiteSettings::imagePath('og_image'));
 $noindex = !empty($noindex);
 $activePath = current_path();
 
@@ -84,8 +84,8 @@ $is_active = static function (string $path) use ($activePath): bool {
     <meta property="og:image" content="<?= e($ogImage) ?>">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="theme-color" content="#145c49">
-    <link rel="icon" type="image/svg+xml" href="<?= e(asset('img/favicon.svg')) ?>">
-    <link rel="apple-touch-icon" href="<?= e(asset('img/logo.svg')) ?>">
+    <link rel="icon" href="<?= e(site_image('favicon')) ?>">
+    <link rel="apple-touch-icon" href="<?= e(site_image('logo')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/main.css')) ?>">
     <?php if (!empty($jsonLd) && is_array($jsonLd)): ?>
     <script type="application/ld+json"><?= json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
@@ -96,7 +96,7 @@ $is_active = static function (string $path) use ($activePath): bool {
 <header class="site-header">
     <div class="container header-inner">
         <a class="brand" href="<?= e(url('/')) ?>" aria-label="<?= e($appName) ?>">
-            <img class="brand-logo" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="44" height="44" aria-hidden="true">
+            <img class="brand-logo" src="<?= e(site_image('logo')) ?>" alt="" width="44" height="44" aria-hidden="true">
             <span class="brand-copy">
                 <span class="brand-name"><?= e($appName) ?></span>
                 <span class="brand-tagline">مدرسه و پایگاه آموزشی</span>
@@ -142,8 +142,8 @@ $is_active = static function (string $path) use ($activePath): bool {
 <footer class="site-footer">
     <div class="container footer-grid">
         <div class="footer-col footer-about">
-            <p class="footer-brand"><img src="<?= e(asset('img/logo.svg')) ?>" alt="" width="38" height="38" aria-hidden="true"> <span><?= e($appName) ?></span></p>
-            <p><?= e((string) Config::get('app.description')) ?></p>
+            <a class="footer-brand" href="<?= e(url('/')) ?>"><img src="<?= e(site_image('logo')) ?>" alt="" width="38" height="38" aria-hidden="true"> <span><?= e($appName) ?></span></a>
+            <p><?= e((string) site_setting('description')) ?></p>
         </div>
         <nav class="footer-col" aria-label="بخش‌های اصلی">
             <h2>بخش‌ها</h2>

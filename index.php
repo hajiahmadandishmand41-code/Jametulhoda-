@@ -20,6 +20,9 @@ require __DIR__ . '/app/Helpers/admin.php';
 require __DIR__ . '/config/config.php';
 require __DIR__ . '/app/Router.php';
 require __DIR__ . '/config/database.php';
+require __DIR__ . '/app/Helpers/schema.php';
+require __DIR__ . '/app/Helpers/migrations.php';
+require __DIR__ . '/app/Services/SiteSettings.php';
 require __DIR__ . '/app/Services/SessionManager.php';
 require __DIR__ . '/app/Services/Csrf.php';
 require __DIR__ . '/app/Repositories/BaseRepository.php';
@@ -103,7 +106,10 @@ if ($path !== '/' && is_file(__DIR__ . $path)) {
     $insideUploads = $resolved !== ''
         && str_starts_with($resolved, realpath(__DIR__ . '/uploads') . DIRECTORY_SEPARATOR);
 
-    if (($insideAssets || $insideUploads) && PHP_SAPI === 'cli-server') {
+    $staticUpload = $insideUploads
+        && preg_match('~\.(?:png|jpe?g|webp|gif|mp3|ogg|mp4|pdf)$~i', $resolved) === 1
+        && !preg_match('~(?:^|/)\.~', $path);
+    if (($insideAssets || $staticUpload) && PHP_SAPI === 'cli-server') {
         return false; // let the built-in server serve the static file
     }
 }
