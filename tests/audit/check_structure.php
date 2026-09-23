@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 /**
- * Check 6: project structure audit (Phase 1 core + Phase 2 data layer).
+ * Check 6: project structure audit (Phase 1 core + Phase 2 data layer
+ * + Phase 3 authentication foundation).
  *
  * Verifies:
  *  1. every directory from the blueprint exists
@@ -34,7 +35,11 @@ $expectedFiles = [
     'index.php', 'router.php', '.htaccess', 'composer.json', '.gitignore',
     'config/config.php', 'config/database.php', 'config/local.example.php',
     'app/Router.php', 'app/Helpers/functions.php',
-    'pages/home.php', 'pages/404.php',
+    'app/Services/SessionManager.php', 'app/Services/Csrf.php',
+    'app/Services/LoginRateLimiter.php', 'app/Services/AuthService.php',
+    'app/Middleware/AuthGuards.php',
+    'app/Repositories/UserRepository.php',
+    'pages/home.php', 'pages/404.php', 'pages/login.php',
     'views/layouts/main.php',
     'assets/css/main.css', 'assets/js/main.js',
     'uploads/.htaccess', 'admin/.htaccess',
@@ -60,6 +65,11 @@ $expectedFiles = [
     'tests/integration/SeedTest.php',
     'tests/security/SqlInjectionTest.php',
     'tests/security/DatabaseSecurityTest.php',
+
+    // --- Phase 3: authentication and authorization ---
+    'tests/unit/AuthTest.php',
+    'tests/integration/AuthenticationTest.php',
+    'tests/security/AuthenticationSecurityTest.php',
 ];
 
 // Files that belong to later phases and must NOT exist yet
@@ -96,10 +106,9 @@ foreach ($forbiddenFiles as $file) {
 }
 
 // Later-phase code must not have appeared in the app layers yet.
-// app/Repositories is intentionally populated in Phase 2; the rest stay empty
-// until their own phase (Controllers/Services in the CRUD phases, Models and
-// Middleware with authentication).
-foreach (['Controllers', 'Models', 'Services', 'Middleware'] as $layer) {
+// Phase 3 populates only the authentication service and middleware layers;
+// controllers/models remain empty until later phases.
+foreach (['Controllers', 'Models'] as $layer) {
     $phpFiles = glob($root . "/app/{$layer}/*.php") ?: [];
     if ($phpFiles !== []) {
         $premature++;
@@ -108,11 +117,30 @@ foreach (['Controllers', 'Models', 'Services', 'Middleware'] as $layer) {
     }
 }
 
-// Phase 2 owns exactly these repositories — anything else is a later phase
-// arriving early (e.g. a UserRepository belongs to authentication).
+$allowedServices = [
+    'AuthService.php', 'Csrf.php', 'LoginRateLimiter.php', 'SessionManager.php',
+];
+foreach (glob($root . '/app/Services/*.php') ?: [] as $service) {
+    if (!in_array(basename($service), $allowedServices, true)) {
+        $premature++;
+        echo '[FAIL]    app/Services/' . basename($service) . " is not part of Phase 3\n";
+    }
+}
+
+$allowedMiddleware = ['AuthGuards.php'];
+foreach (glob($root . '/app/Middleware/*.php') ?: [] as $middleware) {
+    if (!in_array(basename($middleware), $allowedMiddleware, true)) {
+        $premature++;
+        echo '[FAIL]    app/Middleware/' . basename($middleware) . " is not part of Phase 3\n";
+    }
+}
+
+// Phase 3 adds only the user repository; admin/content repositories remain
+// outside this phase.
 $allowedRepositories = [
     'BaseRepository.php', 'ContentRepository.php', 'TopicRepository.php',
     'MediaRepository.php', 'ReportRepository.php', 'EventRepository.php',
+    'UserRepository.php',
 ];
 foreach (glob($root . '/app/Repositories/*.php') ?: [] as $repository) {
     if (!in_array(basename($repository), $allowedRepositories, true)) {
@@ -122,7 +150,7 @@ foreach (glob($root . '/app/Repositories/*.php') ?: [] as $repository) {
 }
 
 $pages = glob($root . '/pages/*.php') ?: [];
-$allowedPages = ['home.php', '404.php'];
+$allowedPages = ['home.php', '404.php', 'login.php'];
 foreach ($pages as $page) {
     if (!in_array(basename($page), $allowedPages, true)) {
         $premature++;

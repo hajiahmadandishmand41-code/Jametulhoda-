@@ -60,7 +60,9 @@ function db(): PDO
             ]
         );
     } catch (PDOException $e) {
-        log_error('DB connection failed: ' . $e->getMessage());
+        // Do not put a DSN, username, password or driver error detail in the
+        // log. The visitor-facing production message is generic as well.
+        log_error('DB connection failed.');
         if (Config::isDebug()) {
             throw $e;
         }

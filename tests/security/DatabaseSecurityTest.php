@@ -108,7 +108,9 @@ final class DatabaseSecurityTest extends TestCase
 
             return null;
         } catch (PDOException $e) {
-            log_error('DB connection failed: ' . $e->getMessage());
+            // The application must not log DSNs, usernames or password detail;
+            // this fixture follows the same redaction rule.
+            log_error('DB connection failed during security test.');
 
             if ($debug) {
                 return $e->getMessage();

@@ -38,6 +38,12 @@ final class Config
                 'password' => '',
                 'charset' => 'utf8mb4',
             ],
+            'auth' => [
+                'session_name' => 'jametulhoda_session',
+                'max_login_attempts' => 5,
+                'login_window_seconds' => 900,
+                'lockout_seconds' => 900,
+            ],
         ];
 
         $localFile = __DIR__ . '/local.php';

@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 /**
- * Phase 2 — the schema file itself: does it parse, does it install, and does
- * the installed database really contain the tables, keys and indexes that
- * database/schema.sql promises?
+ * Phase 2 + Phase 3 — the schema file itself: does it parse, does it
+ * install, and does the installed database contain the promised content and
+ * authentication tables, keys and indexes?
  */
 final class SchemaTest extends TestCase
 {
-    /** Every table Phase 2 must create, in dependency order. */
+    /** Every table Phase 2 and Phase 3 must create, in dependency order. */
     private const TABLES = [
         'topics',
         'media',
@@ -19,6 +19,8 @@ final class SchemaTest extends TestCase
         'report_images',
         'content_media',
         'content_relations',
+        'users',
+        'login_attempts',
     ];
 
     public function testSchemaFileParsesIntoStatements(): void
@@ -41,7 +43,7 @@ final class SchemaTest extends TestCase
         foreach (self::TABLES as $table) {
             $this->assertTrue(in_array($table, $tables, true), "schema.sql must create `{$table}`");
         }
-        $this->assertSame(count(self::TABLES), count($tables), 'no unexpected extra tables in Phase 2');
+        $this->assertSame(count(self::TABLES), count($tables), 'no unexpected extra tables in Phase 2 + Phase 3');
     }
 
     public function testTablesAreCreatedAfterTheTablesTheyReference(): void
@@ -210,6 +212,14 @@ final class SchemaTest extends TestCase
         $this->assertTrue(
             $this->hasUniqueOn($pdo, 'report_images', ['report_id', 'media_id']),
             'an image may appear in one report gallery only once'
+        );
+        $this->assertTrue(
+            $this->hasUniqueOn($pdo, 'users', ['email']),
+            'users.email must be unique'
+        );
+        $this->assertTrue(
+            $this->hasUniqueOn($pdo, 'login_attempts', ['fingerprint']),
+            'login attempt fingerprints must be unique'
         );
     }
 

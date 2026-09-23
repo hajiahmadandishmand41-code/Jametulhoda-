@@ -1,7 +1,8 @@
 -- =============================================================
 -- schema.sql — single source of the database structure
--- Phase 2: content schema (topics, contents, events, reports,
---          report images, media, content/media + related links).
+-- Phase 3: content schema plus authentication (users and login attempts).
+-- Phase 2 content tables remain unchanged; authentication tables are added
+-- at the end of this file so installing this schema is additive and safe.
 --
 -- Target:   MySQL 5.7+ / MariaDB 10.2+ (shared hosting, InfinityFree)
 -- Engine:   InnoDB (transactions + real foreign keys)
@@ -25,6 +26,7 @@
 -- disabling foreign_key_checks:
 --     topics -> media -> contents -> events -> reports
 --            -> report_images -> content_media -> content_relations
+--     users and login_attempts have no foreign-key dependencies.
 --
 -- CHECK constraints are enforced by MySQL 8.0.16+ and MariaDB 10.2+.
 -- Older servers parse and ignore them, so the data layer
@@ -254,4 +256,49 @@ CREATE TABLE IF NOT EXISTS `content_relations` (
     CONSTRAINT `fk_content_relations_related`
         FOREIGN KEY (`related_content_id`) REFERENCES `contents` (`id`)
         ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- -------------------------------------------------------------
+-- users — authentication identities. Passwords are never stored in
+-- plaintext; password_hash contains only the output of password_hash().
+-- role is a bounded string (not an ENUM) so future roles can be added
+-- through application policy and a migration without changing this type.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `users` (
+    `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name`          VARCHAR(160)    NOT NULL,
+    `email`         VARCHAR(254)    NOT NULL,
+    `password_hash` VARCHAR(255)    NOT NULL,
+    `role`          VARCHAR(32)     NOT NULL DEFAULT 'user',
+    `is_active`     TINYINT(1)      NOT NULL DEFAULT 1,
+    `created_at`    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `last_login_at` DATETIME        NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_users_email` (`email`),
+    KEY `idx_users_role_active` (`role`, `is_active`),
+    KEY `idx_users_last_login` (`last_login_at`),
+    CONSTRAINT `chk_users_role` CHECK (`role` IN ('admin', 'editor', 'user')),
+    CONSTRAINT `chk_users_active` CHECK (`is_active` IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------------
+-- login_attempts — one aggregate row per email/IP fingerprint. It is
+-- deliberately small and bounded so shared hosting does not need Redis
+-- or Memcached. Old rows may be pruned by a later maintenance task;
+-- login code only reads the active lockout window.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `login_attempts` (
+    `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `fingerprint`     CHAR(64)        NOT NULL,
+    `email`           VARCHAR(254)    NOT NULL,
+    `ip_address`      VARCHAR(45)     NOT NULL,
+    `failed_count`    TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `first_attempt_at` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `last_attempt_at`  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_login_attempts_fingerprint` (`fingerprint`),
+    KEY `idx_login_attempts_last_attempt` (`last_attempt_at`),
+    KEY `idx_login_attempts_email_ip` (`email`, `ip_address`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

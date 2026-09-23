@@ -1,4 +1,4 @@
-# دیتابیس — Phase 2
+# دیتابیس — Phase 2 + Phase 3
 
 ## اتصال
 
@@ -51,6 +51,11 @@ mysql -u USER -p DATABASE < database/seed.sql   # فقط توسعه/تست
 ---
 
 ## ساختار (Phase 2)
+
+جدول‌های احراز هویت Phase 3 در انتهای `schema.sql` به‌صورت additive اضافه
+شده‌اند؛ نصب دوباره جدول‌های موجود را تغییر نمی‌دهد. برای دیتابیس production
+قدیمی که فقط schema فاز ۲ را دارد، ساخت جدول‌های auth را با backup و در پنجره‌ی
+نگهداری اجرا کنید.
 
 ```text
 topics ──┐
@@ -196,6 +201,36 @@ media ───┘               ├──> reports  (1:1) ──> report_images
 
 ---
 
+## جدول‌های احراز هویت (Phase 3)
+
+### `users`
+
+| ستون | نوع | توضیح |
+|---|---|---|
+| `id` | BIGINT UNSIGNED PK | شناسه‌ی کاربر |
+| `name` | VARCHAR(160) | نام نمایشی؛ UTF-8/فارسی |
+| `email` | VARCHAR(254) UNIQUE | شناسه‌ی ورود، normalize شده با trim/lowercase |
+| `password_hash` | VARCHAR(255) | فقط خروجی `password_hash()`؛ plaintext هرگز ذخیره نمی‌شود |
+| `role` | VARCHAR(32) | `admin`, `editor`, `user`; برای توسعه‌ی policy از ENUM استفاده نشده |
+| `is_active` | TINYINT(1) | حساب غیرفعال اجازه‌ی ورود یا authorization ندارد |
+| `created_at`, `updated_at` | DATETIME | timestampهای ساخت/تغییر |
+| `last_login_at` | DATETIME NULL | آخرین ورود موفق |
+
+روی email unique و روی `(role, is_active)` و `last_login_at` index وجود دارد.
+بررسی role و همه‌ی اعتبارسنجی‌های ورودی در `UserRepository` نیز تکرار می‌شود؛
+CHECK دیتابیس روی سرورهایی که آن را enforce می‌کنند لایه‌ی اضافی است.
+
+### `login_attempts`
+
+یک ردیف aggregate برای fingerprint هش‌شده‌ی email/IP نگه می‌دارد: `failed_count`,
+`first_attempt_at`, `last_attempt_at`. password، session ID و CSRF token در آن
+وجود ندارد. `LoginRateLimiter` در پنجره‌ی ۱۵ دقیقه‌ای پس از ۵ شکست، login را
+برای همان fingerprint رد می‌کند و ورود موفق ردیف را پاک می‌کند. این راهکار فقط
+به PDO/MySQL و session استاندارد PHP نیاز دارد و برای shared hosting قابل حمل
+است. پاک‌سازی دوره‌ای ردیف‌های قدیمی می‌تواند در maintenance آینده اضافه شود؛
+کد هنگام ثبت شکست، ردیف‌های قدیمی‌تر از دو پنجره را opportunistically پاک می‌کند؛
+در Phase 3 هیچ cron یا سرویس خارجی لازم نیست.
+
 ## Data Layer
 
 ### Helperها (`config/database.php`)
@@ -221,6 +256,7 @@ media ───┘               ├──> reports  (1:1) ──> report_images
 | `MediaRepository` | رجیستری رسانه + اتصال/قطع اتصال به محتوا |
 | `ReportRepository` | گزارش + گالری چندتصویری (`syncImages` داخل transaction) |
 | `EventRepository` | رویداد + فهرست پیش‌رو/گذشته |
+| `UserRepository` | ساخت/بازیابی کاربر، یکتایی email، hash گذرواژه و وضعیت active |
 
 ### قوانین الزامی
 
@@ -228,7 +264,8 @@ media ───┘               ├──> reports  (1:1) ──> report_images
 2. نام جدول/ستون هرگز از ورودی کاربر نمی‌آید (و با `db_assert_identifiers` محافظت می‌شود).
 3. `LIMIT`/`OFFSET` به int تبدیل و clamp می‌شوند.
 4. هر نوشتن روی بیش از یک جدول داخل `db_transaction` انجام می‌شود.
-5. مقادیر ENUM (نوع محتوا، وضعیت، نوع رسانه، role) قبل از رسیدن به SQL اعتبارسنجی می‌شوند.
+5. مقادیر ENUM (نوع محتوا، وضعیت و نوع رسانه) و role قبل از رسیدن به SQL
+   اعتبارسنجی می‌شوند.
 
 ---
 
@@ -249,4 +286,12 @@ media ───┘               ├──> reports  (1:1) ──> report_images
 - `tests/security/DatabaseSecurityTest.php` — عدم نشت credential در خطاها
 - `tests/audit/check_schema.php` — بررسی ایستای SQL بدون نیاز به سرور دیتابیس
 
-جدول‌های کاربری/احراز هویت در Phase 3 اضافه می‌شوند.
+## ملاحظات نصب و production
+
+- `seed.sql` عمداً هیچ کاربر یا passwordی ایجاد نمی‌کند. کاربر واقعی باید با
+  مسیر امن provisioning خارج از Git ساخته شود؛ password production در repository
+  یا مستندات قرار نمی‌گیرد.
+- تغییر schema روی نصب موجود migration خودکار نیست. قبل از release، وجود
+  `users` و `login_attempts` را با backup و یک migration کنترل‌شده بررسی کنید.
+- تست‌های auth در SQLite in-memory fallback اجرا می‌شوند اگر MySQL/MariaDB
+  در دسترس نباشد؛ این fallback جایگزین runtime test روی MySQL production نیست.
