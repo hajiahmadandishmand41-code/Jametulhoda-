@@ -19,6 +19,13 @@ require __DIR__ . '/app/Helpers/functions.php';
 require __DIR__ . '/config/config.php';
 require __DIR__ . '/app/Router.php';
 require __DIR__ . '/config/database.php';
+require __DIR__ . '/app/Services/SessionManager.php';
+require __DIR__ . '/app/Services/Csrf.php';
+require __DIR__ . '/app/Repositories/BaseRepository.php';
+require __DIR__ . '/app/Repositories/UserRepository.php';
+require __DIR__ . '/app/Services/LoginRateLimiter.php';
+require __DIR__ . '/app/Services/AuthService.php';
+require __DIR__ . '/app/Middleware/AuthGuards.php';
 
 /* ---------------------------------------------------------------------------
  | Error handling baseline
@@ -31,10 +38,11 @@ if (!Config::isDebug()) {
 error_reporting(E_ALL);
 
 set_exception_handler(static function (Throwable $e): void {
+    // Log class and location only: exception messages can contain driver
+    // details or request-derived values. Never log credentials or tokens.
     log_error(sprintf(
-        'Uncaught %s: %s in %s:%d',
+        'Uncaught %s in %s:%d',
         get_class($e),
-        $e->getMessage(),
         $e->getFile(),
         $e->getLine()
     ));

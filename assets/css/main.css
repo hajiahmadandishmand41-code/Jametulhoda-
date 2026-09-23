@@ -200,6 +200,67 @@ a:hover {
     color: var(--color-muted);
 }
 
+/* ---------- Authentication ---------- */
+
+.auth-card {
+    max-width: 480px;
+    margin: 32px auto;
+    padding: 28px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.auth-card h1 {
+    margin-top: 0;
+}
+
+.auth-card form {
+    display: grid;
+    gap: 10px;
+}
+
+.auth-card input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font: inherit;
+}
+
+.form-error {
+    color: #9b1c1c;
+    background: #fff1f1;
+    border: 1px solid #e7aaaa;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.logout-form {
+    display: inline;
+    margin: 0;
+}
+
+.logout-form button,
+.site-nav a {
+    font: inherit;
+}
+
+.logout-form button {
+    border: 0;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+}
+
+.logout-form button:hover,
+.site-nav a:hover {
+    text-decoration: underline;
+}
+
 /* ---------- Buttons ---------- */
 
 .btn {

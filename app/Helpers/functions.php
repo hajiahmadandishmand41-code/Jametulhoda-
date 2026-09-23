@@ -115,3 +115,28 @@ if (!function_exists('view')) {
         require $layoutFile;
     }
 }
+
+if (!function_exists('safe_redirect_path')) {
+    /**
+     * Accept only a local absolute path for an authentication redirect.
+     * Reject scheme-relative URLs, hosts, backslashes and control characters.
+     */
+    function safe_redirect_path(mixed $candidate, string $fallback = '/'): string
+    {
+        if (!is_string($candidate) || $candidate === '' || strlen($candidate) > 2048) {
+            return $fallback;
+        }
+        if (strpbrk($candidate, "\\\r\n") !== false
+            || !str_starts_with($candidate, '/')
+            || str_starts_with($candidate, '//')) {
+            return $fallback;
+        }
+
+        $parts = parse_url($candidate);
+        if ($parts === false || isset($parts['scheme'], $parts['host'], $parts['user'], $parts['pass'])) {
+            return $fallback;
+        }
+
+        return $candidate;
+    }
+}

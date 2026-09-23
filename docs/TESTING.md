@@ -1,4 +1,4 @@
-# تست — Phase 2
+# تست — Phase 2 + Phase 3
 
 ## اجرای همه‌ی چک‌ها
 
@@ -33,9 +33,9 @@ tests/
 ├── run_all.sh       # اجرای همه‌ی چک‌ها (شامل 6 مرحله)
 ├── bootstrap.php    # بارگذاری هسته‌ی برنامه بدون dispatch
 ├── lib/             # هارنس تست (بدون وابستگی خارجی)
-├── unit/            # Router، Helpers، Config
-├── integration/     # routeها + اتصال DB + Schema/DataLayer/Seed
-├── security/        # امنیت پایه + SQL injection + امنیت دیتابیس
+├── unit/            # Router، Helpers، Config، password/session/CSRF/role
+├── integration/     # routeها + اتصال DB + Schema/DataLayer/Seed/Auth
+├── security/        # امنیت پایه + SQL injection + دیتابیس + authentication
 ├── browser/         # چک‌لیست دستی مرورگر
 ├── lib/             # هارنس تست + SchemaSandbox
 └── audit/           # اسکریپت‌های چک 1,3,4,5,6,8
@@ -50,6 +50,9 @@ tests/
 | `integration/SeedTest.php` | نصب `seed.sql` و درستی روابط داده‌ی آزمایشی |
 | `security/SqlInjectionTest.php` | بی‌اثر بودن payloadها + بررسی سورس برای interpolation ناامن |
 | `security/DatabaseSecurityTest.php` | عدم نشت credential/DSN در خطاها |
+| `unit/AuthTest.php` | password hash/verify، session regeneration، CSRF و role policy |
+| `integration/AuthenticationTest.php` | ساخت/بازیابی user، duplicate email، login success/failure، inactive، logout و throttle |
+| `security/AuthenticationSecurityTest.php` | SQL injection، CSRF، fixation، privilege escalation، route logout و credential regression |
 | `audit/check_schema.php` | بررسی ایستای SQL بدون نیاز به سرور دیتابیس |
 
 #### بک‌اند اجرای تست‌های دیتابیس
@@ -62,6 +65,30 @@ tests/
 > نکته: مسیر fallback عمداً محدود است و `ENGINE`/`CHARSET` را نمی‌سنجد؛ آن موارد در `SchemaTest` و `check_schema.php` روی **متن خود فایل** بررسی می‌شوند تا در هر دو حالت پوشش داده شوند.
 > برای اطمینان کامل از رفتار production، تست‌ها را یک‌بار با MySQL واقعی هم اجرا کنید.
 
+### تست‌های HTTP و مرورگر (Phase 3)
+
+`tests/audit/http_test.sh` به‌صورت خودکار بازشدن `/login`، نبودن route GET برای
+`/logout` و رد شدن POST بدون CSRF را بررسی می‌کند. login موفق و logout موفق
+به یک MySQL/MariaDB نصب‌شده و یک user توسعه‌ای نیاز دارند؛ چون repository نباید
+credential توسعه‌ای داشته باشد، این دو مسیر در `AuthenticationTest` با fixture
+hash‌شده و در چک‌لیست دستی `tests/browser/README.md` بررسی می‌شوند. برای تست
+دستی:
+
+1. یک user آزمایشی را خارج از Git با `UserRepository::createWithPassword` یا
+   یک script موقت بسازید.
+2. `/login` را باز کنید، ورود صحیح/غلط و ماندگاری session را بررسی کنید.
+3. POST logout را از فرم header انجام دهید؛ GET `/logout` نباید logout کند.
+4. پس از logout، درخواست به هر route محافظت‌شده باید با guard رد شود.
+
+### گزارش backend
+
+هر اجرای suite باید backend را صریح گزارش کند:
+
+- `SchemaSandbox::driver() = mysql`: schema و login روی MySQL/MariaDB runtime
+  بررسی شده است.
+- `SchemaSandbox::driver() = sqlite`: auth و data integration فقط روی SQLite
+  in-memory fallback اجرا شده‌اند؛ این نتیجه **ادعای سازگاری runtime با MySQL نیست**.
+
 ## قرارداد نوشتن تست جدید
 
 1. فایل: `tests/<group>/<Name>Test.php` با کلاس هم‌نام.
@@ -71,8 +98,9 @@ tests/
 
 ## پیش‌نیاز
 
-- PHP 8.1+ (تست روی 8.4 انجام شده) با `pdo_mysql` و `mbstring`
+- PHP 8.1+ (تست روی 8.4 انجام شده) با `pdo_mysql` و `mbstring`؛ برای fallback
+  نیز `pdo_sqlite` لازم است.
 - برای HTTP test: `curl`
-- برای تست DB: یک MySQL/MariaDB محلی مطابق `config/local.php`
-  (اختیاری — بدون آن، تست‌های دیتابیس روی SQLite in-memory اجرا می‌شوند
-  و مسیر خطای امن اتصال هم تست می‌شود)
+- برای ادعای کامل production: یک MySQL/MariaDB محلی مطابق `config/local.php`.
+  بدون آن، اگر `pdo_sqlite` فعال باشد، تست‌های schema/data/auth روی SQLite
+  in-memory اجرا می‌شوند و باید در گزارش به‌عنوان SQLite تفکیک شوند.

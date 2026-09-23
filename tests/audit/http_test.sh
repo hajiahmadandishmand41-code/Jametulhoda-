@@ -12,9 +12,11 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PORT="${PORT:-8123}"
 LOG="$(mktemp)"
 SERVER_PID=""
+AUTH_COOKIE=""
 
 cleanup() {
     [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
+    [ -n "$AUTH_COOKIE" ] && rm -f "$AUTH_COOKIE"
     rm -f "$LOG"
 }
 trap cleanup EXIT
@@ -71,8 +73,21 @@ check "GET /tests/run.php"          404 "$B/tests/run.php"
 check "GET /logs/error.log"         404 "$B/logs/error.log"
 check "GET /database/schema.sql"    404 "$B/database/schema.sql"
 check "GET /admin/"                 404 "$B/admin/"
+check "GET /login"                  200 "$B/login" "ورود به حساب کاربری"
+check "GET /logout (must be POST)"   404 "$B/logout"
 check "GET /%2e%2e/config"          404 "$B/%2e%2e/config"
 check "GET /../../etc/passwd"       404 "$B/%2e%2e/%2e%2e/etc/passwd"
+
+# Authentication state-changing requests must carry a CSRF token. A request
+# without one is rejected before any database lookup.
+raw="$(curl -s -X POST -w $'\n%{http_code}' "$B/logout")"
+code="$(printf '%s' "$raw" | tail -n1)"
+if [ "$code" = "403" ]; then
+    echo "[OK]   POST /logout without CSRF (HTTP ${code})"
+else
+    echo "[FAIL] POST /logout without CSRF — expected 403, got $code"
+    status=1
+fi
 
 # POST needs a flag for curl — re-run the two POST cases explicitly
 raw="$(curl -s -X POST -w $'\n%{http_code}' "$B/")"
@@ -82,6 +97,43 @@ if [ "$code" = "405" ]; then
 else
     echo "[FAIL] POST / (real) — expected 405, got $code"
     status=1
+fi
+
+# An end-to-end valid login requires a deliberately supplied development
+# fixture. Nothing is seeded or hard-coded in Git. Set both variables when a
+# local MySQL/MariaDB user is available to exercise login persistence/logout.
+if [ -n "${AUTH_TEST_EMAIL:-}" ] && [ -n "${AUTH_TEST_PASSWORD:-}" ]; then
+    AUTH_COOKIE="$(mktemp)"
+    login_body="$(curl -sS -c "$AUTH_COOKIE" "$B/login")"
+    csrf="$(printf '%s' "$login_body" | sed -n 's/.*name="_csrf_token" value="\([^"]*\)".*/\1/p' | head -n1)"
+    raw="$(curl -sS -b "$AUTH_COOKIE" -c "$AUTH_COOKIE" -X POST \
+        --data-urlencode "_csrf_token=$csrf" \
+        --data-urlencode "email=$AUTH_TEST_EMAIL" \
+        --data-urlencode "password=$AUTH_TEST_PASSWORD" \
+        --data-urlencode "redirect=/" \
+        -w $'\n%{http_code}' "$B/login")"
+    code="$(printf '%s' "$raw" | tail -n1)"
+    if [ "$code" = "303" ]; then
+        echo "[OK]   valid login (HTTP ${code})"
+    else
+        echo "[FAIL] valid login — expected 303, got $code"
+        status=1
+    fi
+
+    home="$(curl -sS -b "$AUTH_COOKIE" "$B/")"
+    logout_csrf="$(printf '%s' "$home" | sed -n 's/.*name="_csrf_token" value="\([^"]*\)".*/\1/p' | head -n1)"
+    raw="$(curl -sS -b "$AUTH_COOKIE" -c "$AUTH_COOKIE" -X POST \
+        --data-urlencode "_csrf_token=$logout_csrf" \
+        -w $'\n%{http_code}' "$B/logout")"
+    code="$(printf '%s' "$raw" | tail -n1)"
+    if [ "$code" = "303" ]; then
+        echo "[OK]   authenticated logout (HTTP ${code})"
+    else
+        echo "[FAIL] authenticated logout — expected 303, got $code"
+        status=1
+    fi
+else
+    echo "[SKIP] valid login/logout HTTP flow (set AUTH_TEST_EMAIL and AUTH_TEST_PASSWORD for a local fixture)"
 fi
 
 echo

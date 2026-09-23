@@ -19,6 +19,8 @@ declare(strict_types=1);
 $appName = (string) Config::get('app.name');
 $pageTitle = (isset($title) && (string) $title !== '') ? $title . ' | ' . $appName : $appName;
 $description = (string) ($metaDescription ?? '');
+$authenticated = function_exists('isAuthenticated') && isAuthenticated();
+$logoutCsrfField = $authenticated && function_exists('csrf_field') ? csrf_field() : '';
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -37,6 +39,14 @@ $description = (string) ($metaDescription ?? '');
         <a class="brand" href="<?= e(url('/')) ?>"><?= e($appName) ?></a>
         <nav class="site-nav" aria-label="ناوبری اصلی">
             <a href="<?= e(url('/')) ?>">خانه</a>
+            <?php if ($authenticated): ?>
+                <form method="post" action="<?= e(url('/logout')) ?>" class="logout-form">
+                    <?= $logoutCsrfField ?>
+                    <button type="submit">خروج</button>
+                </form>
+            <?php else: ?>
+                <a href="<?= e(url('/login')) ?>">ورود</a>
+            <?php endif; ?>
         </nav>
     </div>
 </header>
