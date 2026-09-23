@@ -38,3 +38,5 @@
     <span class="architecture-note-icon" aria-hidden="true">✦</span>
     <div><h3>آماده برای توسعه newsroom</h3><p>ساختار داشبورد برای افزودن ویجت‌های آخرین خبرها، خبرهای برتر، داستان ویژه و چندرسانه‌ای آماده شده است؛ منطق تحریریه این بخش‌ها هنوز فعال نیست.</p></div>
 </section>
+
+<section class="admin-panel latest-panel"><div class="panel-heading"><div><p class="admin-kicker">به‌روزرسانی</p><h3>آخرین محتوا</h3></div><a href="<?=e(url('/admin/content'))?>">مشاهده همه</a></div><div class="latest-list"><?php foreach(($latest??[]) as $item): ?><a href="<?=e(url('/admin/content/edit/'.$item['id']))?>"><strong><?=e($item['title'])?></strong><span><?=e($item['updated_at'])?></span></a><?php endforeach; ?><?php if(empty($latest)): ?><p class="empty-state">هنوز محتوایی ثبت نشده است.</p><?php endif; ?></div></section>

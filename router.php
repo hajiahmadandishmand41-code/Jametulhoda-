@@ -107,6 +107,7 @@ function define_routes(Router $router): void
                 'media' => (new MediaRepository())->count(),
                 'topics' => (new TopicRepository())->count(['is_active' => 1]),
             ],
+            'latest' => $contents->adminList(null, null, '', 8, 0),
             'typeLabels' => [
                 'article' => 'مقالات',
                 'news' => 'خبرها',
