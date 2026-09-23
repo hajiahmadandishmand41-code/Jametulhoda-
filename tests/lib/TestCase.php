@@ -14,6 +14,22 @@ abstract class TestCase
 {
     public int $assertions = 0;
 
+    /**
+     * Runs before each test method. Override to prepare fixtures.
+     */
+    public function setUp(): void
+    {
+    }
+
+    /**
+     * Runs after each test method, even when it failed. Override to undo
+     * anything global the test touched, so suites never leak state into
+     * each other.
+     */
+    public function tearDown(): void
+    {
+    }
+
     public function assertTrue(mixed $condition, string $message = ''): void
     {
         $this->assertions++;

@@ -32,8 +32,12 @@ final class Runner
             if (!str_starts_with($method, 'test')) {
                 continue;
             }
+            if (in_array($method, ['setUp', 'tearDown'], true)) {
+                continue;
+            }
             $instance = new $class(); // fresh instance per test
             try {
+                $instance->setUp();
                 $instance->{$method}();
                 $this->passed++;
                 echo "  [OK]   {$class}::{$method} ({$instance->assertions} assertions)\n";
@@ -42,6 +46,17 @@ final class Runner
                 $label = "{$class}::{$method}";
                 $this->failures[] = $label . ' — ' . $e->getMessage();
                 echo "  [FAIL] {$label}\n         {$e->getMessage()}\n";
+            } finally {
+                // Always run, so a failing test cannot leak global state
+                // (e.g. a swapped database connection) into the next one.
+                try {
+                    $instance->tearDown();
+                } catch (Throwable $e) {
+                    $this->failed++;
+                    $label = "{$class}::{$method} (tearDown)";
+                    $this->failures[] = $label . ' — ' . $e->getMessage();
+                    echo "  [FAIL] {$label}\n         {$e->getMessage()}\n";
+                }
             }
         }
     }
