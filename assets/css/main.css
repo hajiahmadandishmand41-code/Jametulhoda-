@@ -55,7 +55,8 @@ a:hover {
     padding-inline: 16px;
 }
 
-.visually-hidden {
+.visually-hidden,
+.sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1509,5 +1510,145 @@ a:hover {
 @media (min-width: 960px) {
     .media-grid {
         grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ============================================================
+   Browser installer — shared-hosting first run
+   ============================================================ */
+.install-page {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 12% 12%, rgba(199, 154, 47, .16), transparent 30%),
+        radial-gradient(circle at 88% 18%, rgba(20, 92, 73, .14), transparent 32%),
+        var(--color-bg);
+}
+.install-shell {
+    width: min(100% - 28px, 980px);
+    margin-inline: auto;
+    padding-block: 28px 56px;
+}
+.install-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    padding: clamp(20px, 4vw, 36px);
+}
+.install-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+.install-brand img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+}
+.install-brand h1 {
+    margin: 4px 0 0;
+    font-size: clamp(1.35rem, 3vw, 2rem);
+}
+.install-intro {
+    margin: 0 0 20px;
+    color: var(--color-muted);
+}
+.install-requirements {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 22px;
+}
+.requirement {
+    display: grid;
+    gap: 2px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    background: #fbfcff;
+}
+.requirement strong {
+    font-size: .88rem;
+}
+.requirement span {
+    color: var(--color-muted);
+    font-size: .78rem;
+}
+.requirement.is-ok {
+    border-color: #bfe4ca;
+    background: #f3fbf5;
+}
+.requirement.is-bad {
+    border-color: #f0bebf;
+    background: #fff5f5;
+}
+.install-form {
+    display: grid;
+    gap: 18px;
+}
+.install-form fieldset {
+    margin: 0;
+    padding: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+}
+.install-form legend {
+    padding-inline: 8px;
+    font-weight: 800;
+    color: var(--color-primary);
+}
+.install-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.install-form label {
+    display: grid;
+    gap: 7px;
+    color: var(--color-muted);
+    font-size: .88rem;
+    font-weight: 700;
+}
+.install-form input {
+    min-height: 44px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font: inherit;
+}
+.install-success {
+    display: grid;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid #bfe4ca;
+    background: #f3fbf5;
+}
+.install-success h2 {
+    margin: 0;
+    color: #17623f;
+}
+.install-steps {
+    margin: 0;
+    padding-inline-start: 22px;
+}
+.install-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+@media (max-width: 640px) {
+    .install-grid {
+        grid-template-columns: 1fr;
+    }
+    .install-brand {
+        align-items: flex-start;
+    }
+    .install-brand img {
+        width: 56px;
+        height: 56px;
     }
 }

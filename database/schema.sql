@@ -32,6 +32,7 @@
 -- Table order matters: every table is created after the tables it
 -- references, so the foreign keys install cleanly without ever
 -- disabling foreign_key_checks:
+--     schema_migrations (no dependencies)
 --     topics -> media -> contents -> events -> reports
 --            -> report_images -> content_media -> content_relations
 --            -> books -> research -> lessons
@@ -46,6 +47,19 @@
 -- =============================================================
 
 SET NAMES utf8mb4;
+
+-- -------------------------------------------------------------
+-- schema_migrations — records migrations already applied by install.php.
+-- It contains no credentials or user data; only migration file metadata.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `schema_migrations` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `migration` VARCHAR(190) NOT NULL,
+    `checksum` CHAR(64) NOT NULL,
+    `applied_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_schema_migrations_migration` (`migration`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------------
 -- topics — the shared taxonomy used by every content type.

@@ -11,6 +11,7 @@ final class SchemaTest extends TestCase
 {
     /** Every table Phase 2 and Phase 3 must create, in dependency order. */
     private const TABLES = [
+        'schema_migrations',
         'topics',
         'media',
         'contents',

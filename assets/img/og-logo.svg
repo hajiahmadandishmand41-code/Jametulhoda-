@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">جامة الهدی</title>
+  <desc id="desc">کارت معرفی وب‌سایت مدرسه جامة الهدی</desc>
+  <rect width="1200" height="630" fill="#f8f3e6"/>
+  <circle cx="900" cy="315" r="190" fill="none" stroke="#145c49" stroke-width="26"/>
+  <path d="M804 358c35 62 102 96 174 75 57-17 95-66 95-126 0-84-68-152-152-152-37 0-71 13-98 36" fill="none" stroke="#145c49" stroke-width="34" stroke-linecap="round"/>
+  <path d="M838 380h155" stroke="#c79a2f" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="846" cy="384" r="17" fill="#c79a2f"/>
+  <text x="690" y="250" direction="rtl" text-anchor="end" font-family="Tahoma, Arial, sans-serif" font-size="74" font-weight="700" fill="#145c49">جامة الهدی</text>
+  <text x="690" y="335" direction="rtl" text-anchor="end" font-family="Tahoma, Arial, sans-serif" font-size="34" fill="#5b6478">پایگاه آموزشی، پژوهشی و فرهنگی</text>
+  <path d="M120 425h570" stroke="#c79a2f" stroke-width="8" stroke-linecap="round"/>
+</svg>

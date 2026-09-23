@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">نشان جامة الهدی</title>
+  <desc id="desc">نشان ساده و اختصاصی با خوشنویسی حرف ج و گنبد آموزشی</desc>
+  <defs>
+    <linearGradient id="g" x1="80" y1="64" x2="432" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f7a5f"/>
+      <stop offset="0.55" stop-color="#145c49"/>
+      <stop offset="1" stop-color="#c79a2f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#f8f3e6"/>
+  <circle cx="256" cy="256" r="204" fill="none" stroke="url(#g)" stroke-width="28"/>
+  <path d="M150 300c31 58 93 91 161 72 54-15 89-61 89-118 0-80-65-145-145-145-35 0-68 12-93 34" fill="none" stroke="#145c49" stroke-width="34" stroke-linecap="round"/>
+  <path d="M174 209c30-38 66-57 108-57 49 0 91 28 112 69" fill="none" stroke="#c79a2f" stroke-width="22" stroke-linecap="round"/>
+  <path d="M184 320h150" stroke="#145c49" stroke-width="30" stroke-linecap="round"/>
+  <path d="M256 108v-44" stroke="#c79a2f" stroke-width="24" stroke-linecap="round"/>
+  <path d="M220 92h72" stroke="#c79a2f" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="190" cy="328" r="18" fill="#c79a2f"/>
+</svg>
