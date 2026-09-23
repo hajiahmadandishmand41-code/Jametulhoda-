@@ -22,8 +22,8 @@ final class Config
     {
         $defaults = [
             'app' => [
-                'name' => 'سایت من',
-                'description' => 'یک سایت فارسی، مدرن و سبک؛ ساخته‌شده با PHP خام و بدون فریمورک.',
+                'name' => 'جامة‌الهدی',
+                'description' => 'پایگاه خبری و محتوایی مذهبی؛ اخبار، مقالات، گزارش‌ها و رویدادهای دینی و فرهنگی.',
                 'environment' => 'production', // production | development
                 'timezone' => 'Asia/Kabul',
                 'url' => null, // null = auto-detect from the request

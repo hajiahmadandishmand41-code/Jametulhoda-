@@ -41,6 +41,13 @@ $expectedFiles = [
     'app/Repositories/UserRepository.php',
     'pages/home.php', 'pages/404.php', 'pages/login.php',
     'views/layouts/main.php',
+
+    // --- Phase 5: public content surface ---
+    'pages/public_listing.php', 'pages/public_detail.php',
+    'pages/topic.php', 'pages/search.php',
+    'views/partials/content_card.php', 'views/partials/pagination.php',
+    'views/partials/list_body.php',
+    'tests/security/PublicSurfaceSecurityTest.php',
     'assets/css/main.css', 'assets/js/main.js',
     'uploads/.htaccess', 'admin/.htaccess',
     'database/schema.sql', 'database/seed.sql',
@@ -74,8 +81,6 @@ $expectedFiles = [
 
 // Files that belong to later phases and must NOT exist yet
 $forbiddenFiles = [
-    'pages/about.php', 'pages/article.php', 'pages/news.php',
-    'pages/event.php', 'pages/report.php', 'pages/search.php',
     'admin/index.php', 'admin/login.php', 'admin/logout.php',
 ];
 
@@ -150,7 +155,11 @@ foreach (glob($root . '/app/Repositories/*.php') ?: [] as $repository) {
 }
 
 $pages = glob($root . '/pages/*.php') ?: [];
-$allowedPages = ['home.php', '404.php', 'login.php'];
+$allowedPages = [
+    'home.php', '404.php', 'login.php',
+    // Phase 5 public content surface
+    'public_listing.php', 'public_detail.php', 'topic.php', 'search.php',
+];
 foreach ($pages as $page) {
     if (!in_array(basename($page), $allowedPages, true)) {
         $premature++;

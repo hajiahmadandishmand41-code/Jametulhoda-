@@ -26,8 +26,32 @@ function define_routes(Router $router): void
     };
 
     $router->get('/', static function (): void {
-        $repo=new ContentRepository(); $latest=$repo->publicList('news',6,0); $featured=$latest[0]??null;
-        view('home', ['title'=>'خانه','metaDescription'=>(string)Config::get('app.description'),'latest'=>$latest,'featured'=>$featured,'articles'=>$repo->publicList('article',4,0),'reports'=>$repo->publicList('report',4,0),'events'=>$repo->publicList('event',4,0),'topics'=>(new TopicRepository())->allActive()]);
+        // The home page is the site's entry point: a transient database
+        // problem should degrade to a professional empty state, never a hard
+        // 500 for every visitor. Detail/listing pages still surface errors.
+        $news = $articles = $reports = $events = $topics = [];
+        try {
+            $repo = new ContentRepository();
+            $news = $repo->publicList('news', 7, 0);
+            $articles = $repo->publicList('article', 4, 0);
+            $reports = $repo->publicList('report', 4, 0);
+            $events = $repo->publicList('event', 4, 0);
+            $topics = (new TopicRepository())->allActive();
+        } catch (Throwable $e) {
+            log_error('Home page data load failed: ' . get_class($e));
+        }
+        view('home', [
+            'title' => '',
+            'metaDescription' => (string) Config::get('app.description'),
+            'featured' => $news[0] ?? null,
+            'secondary' => array_slice($news, 1, 4),
+            'latest' => array_slice($news, 1, 6),
+            'articles' => $articles,
+            'reports' => $reports,
+            'events' => $events,
+            'topics' => $topics,
+            'isHome' => true,
+        ]);
     });
 
     $router->get('/login', static function () use ($renderLogin): void {
@@ -115,20 +139,173 @@ function define_routes(Router $router): void
         ]);
     });
 
+    // -----------------------------------------------------------------
     // Public Phase 5 content surface.
-    foreach (['news'=>'خبرها','articles'=>'مقالات','reports'=>'گزارش‌ها','events'=>'رویدادها'] as $publicPath => $publicLabel) {
-        $type = $publicPath === 'articles' ? 'article' : rtrim($publicPath, 's');
-        $router->get('/' . $publicPath, static function () use ($type, $publicLabel, $publicPath): void {
-            $page=max(1,(int)($_GET['page']??1));$limit=12;$repo=new ContentRepository();$total=$repo->publicCount($type);view('public_listing',['title'=>$publicLabel,'heading'=>$publicLabel,'type'=>$type,'items'=>$repo->publicList($type,$limit,($page-1)*$limit),'page'=>$page,'pages'=>max(1,(int)ceil($total/$limit)),'path'=>'/'.$publicPath]);
+    // Only 'published' rows (published_at <= now) are ever returned; the
+    // repositories enforce that at the SQL layer, so drafts/archived rows
+    // can never be reached from a public URL.
+    // -----------------------------------------------------------------
+    $publicSections = [
+        'news'     => ['type' => 'news',    'label' => 'خبرها',    'intro' => 'تازه‌ترین خبرهای دینی و فرهنگی'],
+        'articles' => ['type' => 'article', 'label' => 'مقالات',   'intro' => 'مقالات و یادداشت‌های تحلیلی'],
+        'reports'  => ['type' => 'report',  'label' => 'گزارش‌ها', 'intro' => 'گزارش‌های میدانی و مصور'],
+        'events'   => ['type' => 'event',   'label' => 'رویدادها', 'intro' => 'مناسبت‌ها و رویدادهای پیشِ‌رو'],
+    ];
+    foreach ($publicSections as $publicPath => $section) {
+        $type = $section['type'];
+        $label = $section['label'];
+        $intro = $section['intro'];
+
+        $router->get('/' . $publicPath, static function () use ($type, $label, $intro, $publicPath): void {
+            $page = max(1, (int) ($_GET['page'] ?? 1));
+            $limit = 12;
+            $repo = new ContentRepository();
+            $total = $repo->publicCount($type);
+            $pages = max(1, (int) ceil($total / $limit));
+            $page = min($page, $pages);
+            view('public_listing', [
+                'title' => $label,
+                'metaDescription' => $intro,
+                'heading' => $label,
+                'intro' => $intro,
+                'type' => $type,
+                'items' => $repo->publicList($type, $limit, ($page - 1) * $limit),
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'path' => '/' . $publicPath,
+            ]);
         });
-        $router->get('/' . $publicPath . '/{slug}', static function (array $params) use ($type, $publicLabel): void {
-            $item=(new ContentRepository())->findPublishedBySlug($type,rawurldecode($params['slug'])); if(!$item){http_response_code(404);view('404',['title'=>'صفحه پیدا نشد','metaDescription'=>'']);return;} $related=(new ContentRepository())->relatedPublished((int)$item['id']); view('public_detail',['title'=>$item['title'],'metaDescription'=>$item['summary']??'','item'=>$item,'related'=>$related]);
+
+        $router->get('/' . $publicPath . '/{slug}', static function (array $params) use ($type): void {
+            $slug = rawurldecode($params['slug']);
+            $repo = new ContentRepository();
+            $item = $repo->findPublishedDetail($type, $slug);
+            if (!$item) {
+                http_response_code(404);
+                view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+                return;
+            }
+
+            $id = (int) $item['id'];
+            $media = (new MediaRepository())->forContent($id);
+            $gallery = $type === 'report' ? (new ReportRepository())->images($id) : [];
+            if ($type === 'event') {
+                $eventExtra = (new EventRepository())->find($id);
+                if ($eventExtra) {
+                    $item['starts_at'] = $eventExtra['starts_at'] ?? null;
+                    $item['ends_at'] = $eventExtra['ends_at'] ?? null;
+                    $item['location'] = $eventExtra['location'] ?? null;
+                }
+            }
+            if ($type === 'report') {
+                $reportExtra = (new ReportRepository())->find($id);
+                if ($reportExtra) {
+                    $item['event_date'] = $reportExtra['event_date'] ?? null;
+                    $item['location'] = $reportExtra['location'] ?? null;
+                }
+            }
+
+            view('public_detail', [
+                'title' => (string) $item['title'],
+                'metaDescription' => excerpt((string) ($item['summary'] ?? $item['body'] ?? ''), 160),
+                'item' => $item,
+                'type' => $type,
+                'related' => $repo->relatedPublished($id),
+                'media' => $media,
+                'gallery' => $gallery,
+            ]);
         });
     }
-    $router->get('/search', static function (): void { $q=is_string($_GET['q']??null)?trim((string)$_GET['q']):''; $page=max(1,(int)($_GET['page']??1));$repo=new ContentRepository();$items=$q===''?[]:$repo->publicSearch($q,12,($page-1)*12);$total=$q===''?0:$repo->publicCount(null,null,$q);view('public_listing',['title'=>'جستجو','heading'=>'نتایج جستجو برای: '.$q,'type'=>'news','items'=>$items,'page'=>$page,'pages'=>max(1,(int)ceil($total/12)),'path'=>'/search?q='.rawurlencode($q)]); });
-    $router->get('/topics/{slug}', static function (array $params): void { $topic=(new TopicRepository())->findBySlug(rawurldecode($params['slug']));if(!$topic){http_response_code(404);view('404',['title'=>'صفحه پیدا نشد']);return;}$page=max(1,(int)($_GET['page']??1));$repo=new ContentRepository();$total=$repo->publicCount(null,(int)$topic['id']);view('public_listing',['title'=>$topic['title'],'heading'=>$topic['title'],'type'=>'news','items'=>$repo->publicByTopic((int)$topic['id'],12,($page-1)*12),'page'=>$page,'pages'=>max(1,(int)ceil($total/12)),'path'=>'/topics/'.$topic['slug']]); });
-    $router->get('/sitemap.xml', static function (): void { header('Content-Type: application/xml; charset=UTF-8');$repo=new ContentRepository();$urls=[url('/')];foreach(['news','article','report','event'] as $type){foreach($repo->publicList($type,100,0) as $item)$urls[]=url('/'.($type==='article'?'articles':$type.'s').'/'.$item['slug']);}echo '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';foreach($urls as $u)echo '<url><loc>'.e($u).'</loc></url>';echo '</urlset>'; });
-    $router->get('/robots.txt', static function (): void { header('Content-Type: text/plain; charset=UTF-8'); echo "User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: ".url('/sitemap.xml')."\n"; });
+
+    $router->get('/search', static function (): void {
+        $q = is_string($_GET['q'] ?? null) ? trim((string) $_GET['q']) : '';
+        $q = mb_substr($q, 0, 120, 'UTF-8');
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = 12;
+        $minLen = 2;
+        $repo = new ContentRepository();
+
+        $tooShort = $q !== '' && mb_strlen($q, 'UTF-8') < $minLen;
+        $items = ($q === '' || $tooShort) ? [] : $repo->publicSearch($q, $limit, ($page - 1) * $limit);
+        $total = ($q === '' || $tooShort) ? 0 : $repo->publicCount(null, null, $q);
+        $pages = max(1, (int) ceil($total / $limit));
+        $page = min($page, $pages);
+
+        view('search', [
+            'title' => $q !== '' ? ('جستجو: ' . $q) : 'جستجو',
+            'metaDescription' => 'جستجو در محتوای منتشرشده',
+            'query' => $q,
+            'tooShort' => $tooShort,
+            'minLen' => $minLen,
+            'items' => $items,
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
+        ]);
+    });
+
+    $router->get('/topics/{slug}', static function (array $params): void {
+        $topic = (new TopicRepository())->findBySlug(rawurldecode($params['slug']));
+        if (!$topic) {
+            http_response_code(404);
+            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+            return;
+        }
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = 12;
+        $repo = new ContentRepository();
+        $total = $repo->publicCount(null, (int) $topic['id']);
+        $pages = max(1, (int) ceil($total / $limit));
+        $page = min($page, $pages);
+        view('topic', [
+            'title' => (string) $topic['title'],
+            'metaDescription' => excerpt((string) ($topic['description'] ?? ('آخرین محتوای مرتبط با ' . $topic['title'])), 160),
+            'topic' => $topic,
+            'items' => $repo->publicByTopic((int) $topic['id'], $limit, ($page - 1) * $limit),
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
+            'path' => '/topics/' . rawurlencode((string) $topic['slug']),
+        ]);
+    });
+
+    $router->get('/sitemap.xml', static function (): void {
+        header('Content-Type: application/xml; charset=UTF-8');
+        $repo = new ContentRepository();
+        $now = date('Y-m-d\TH:i:sP');
+        $entries = [['loc' => url('/'), 'lastmod' => $now]];
+        foreach (['/news', '/articles', '/reports', '/events'] as $listing) {
+            $entries[] = ['loc' => url($listing), 'lastmod' => $now];
+        }
+        foreach (['news', 'article', 'report', 'event'] as $type) {
+            foreach ($repo->publicList($type, 50, 0) as $item) {
+                $entries[] = [
+                    'loc' => content_url($type, (string) $item['slug']),
+                    'lastmod' => !empty($item['updated_at']) ? date('Y-m-d\TH:i:sP', strtotime((string) $item['updated_at'])) : $now,
+                ];
+            }
+        }
+        foreach ((new TopicRepository())->allActive() as $topic) {
+            $entries[] = ['loc' => url('/topics/' . rawurlencode((string) $topic['slug'])), 'lastmod' => $now];
+        }
+        echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        foreach ($entries as $entry) {
+            echo '  <url><loc>' . e($entry['loc']) . '</loc><lastmod>' . e($entry['lastmod']) . '</lastmod></url>' . "\n";
+        }
+        echo '</urlset>' . "\n";
+    });
+
+    $router->get('/robots.txt', static function (): void {
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo "User-agent: *\n";
+        echo "Allow: /\n";
+        echo "Disallow: /admin\n";
+        echo "Disallow: /login\n";
+        echo "Disallow: /search\n";
+        echo 'Sitemap: ' . url('/sitemap.xml') . "\n";
+    });
 
     // Phase 4 newsroom: all mutations are admin-only and CSRF protected.
     $adminOnly = static function (): bool { return requireRole('admin'); };

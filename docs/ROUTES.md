@@ -1,4 +1,26 @@
-# Routeها — Phase 1 + Phase 3
+# Routeها — Phase 1 + Phase 3 + Phase 5 (سطح عمومی)
+
+## Routeهای عمومی Phase 5
+
+| Method | Path | خروجی | Status |
+|--------|------|-------|--------|
+| GET | `/` | صفحهٔ خانه (خبر اصلی، بخش‌ها، موضوعات) | 200 |
+| GET | `/news` | فهرست خبرها + pagination | 200 |
+| GET | `/news/{slug}` | جزئیات خبر منتشرشده | 200 / 404 |
+| GET | `/articles` | فهرست مقالات | 200 |
+| GET | `/articles/{slug}` | جزئیات مقاله | 200 / 404 |
+| GET | `/reports` | فهرست گزارش‌ها | 200 |
+| GET | `/reports/{slug}` | جزئیات گزارش + گالری | 200 / 404 |
+| GET | `/events` | فهرست رویدادها | 200 |
+| GET | `/events/{slug}` | جزئیات رویداد (زمان/مکان) | 200 / 404 |
+| GET | `/topics/{slug}` | محتوای یک موضوع + pagination | 200 / 404 |
+| GET | `/search?q=…` | جستجو (حداقل ۲ نویسه) | 200 |
+| GET | `/sitemap.xml` | نقشهٔ سایت XML | 200 |
+| GET | `/robots.txt` | robots (Disallow: /admin) | 200 |
+
+> فقط محتوای `published` با `published_at <= now` در مسیرهای عمومی دیده می‌شود؛
+> `draft`/`archived` از URL عمومی قابل دسترسی نیست (فیلتر در لایهٔ SQL).
+> صفحات جستجو و ۴۰۴ با `noindex` علامت می‌خورند.
 
 ## Routeهای ثبت‌شده (فقط در `router.php`)
 

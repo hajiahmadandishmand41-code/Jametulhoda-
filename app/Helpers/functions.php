@@ -126,6 +126,178 @@ if (!function_exists('slugify')) {
     }
 }
 
+if (!function_exists('content_url')) {
+    /**
+     * Public URL for a content item, mapping the internal content type to its
+     * SEO-friendly URL segment. Slugs are URL-encoded so Persian slugs stay
+     * valid inside href attributes.
+     */
+    function content_url(string $type, string $slug): string
+    {
+        $map = [
+            'article' => 'articles',
+            'news'    => 'news',
+            'report'  => 'reports',
+            'event'   => 'events',
+        ];
+        $segment = $map[$type] ?? 'news';
+
+        return url('/' . $segment . '/' . rawurlencode($slug));
+    }
+}
+
+if (!function_exists('listing_url')) {
+    /**
+     * Public URL for a content-type listing page.
+     */
+    function listing_url(string $type): string
+    {
+        $map = [
+            'article' => '/articles',
+            'news'    => '/news',
+            'report'  => '/reports',
+            'event'   => '/events',
+        ];
+
+        return url($map[$type] ?? '/news');
+    }
+}
+
+if (!function_exists('media_url')) {
+    /**
+     * Safe public URL for an uploaded media file.
+     *
+     * Only paths that live under uploads/ are ever returned; anything that
+     * tries to escape that directory (path traversal) yields an empty string,
+     * so a bad row can never link to an arbitrary file on disk.
+     */
+    function media_url(string $diskPath): string
+    {
+        $clean = ltrim(trim($diskPath), '/');
+        if ($clean === '' || !str_starts_with($clean, 'uploads/')) {
+            return '';
+        }
+        if (str_contains($clean, '..') || str_contains($clean, "\0") || str_contains($clean, '\\')) {
+            return '';
+        }
+
+        return url('/' . $clean);
+    }
+}
+
+if (!function_exists('excerpt')) {
+    /**
+     * A plain-text excerpt of arbitrary content: tags stripped, whitespace
+     * collapsed, trimmed to a length on a whole-word boundary. Safe to pass
+     * through e() afterwards.
+     */
+    function excerpt(?string $text, int $length = 160): string
+    {
+        $text = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $text)) ?? '');
+        if ($text === '' || mb_strlen($text, 'UTF-8') <= $length) {
+            return $text;
+        }
+        $cut = mb_substr($text, 0, $length, 'UTF-8');
+        $lastSpace = mb_strrpos($cut, ' ', 0, 'UTF-8');
+        if ($lastSpace !== false && $lastSpace > 0) {
+            $cut = mb_substr($cut, 0, $lastSpace, 'UTF-8');
+        }
+
+        return rtrim($cut) . '…';
+    }
+}
+
+if (!function_exists('fa_digits')) {
+    /**
+     * Convert ASCII digits in a string to Persian digits.
+     */
+    function fa_digits(string $value): string
+    {
+        return strtr($value, [
+            '0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴',
+            '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹',
+        ]);
+    }
+}
+
+if (!function_exists('gregorian_to_jalali')) {
+    /**
+     * Convert a Gregorian date to the Jalali (Solar Hijri) calendar.
+     *
+     * Standard, deterministic algorithm (jdf). Returns [year, month, day].
+     *
+     * @return array{0:int,1:int,2:int}
+     */
+    function gregorian_to_jalali(int $gy, int $gm, int $gd): array
+    {
+        $gDaysInMonth = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+        $gy2 = ($gm > 2) ? ($gy + 1) : $gy;
+        $days = 355666 + (365 * $gy) + intdiv($gy2 + 3, 4) - intdiv($gy2 + 99, 100)
+            + intdiv($gy2 + 399, 400) + $gd + $gDaysInMonth[$gm - 1];
+        $jy = -1595 + (33 * intdiv($days, 12053));
+        $days %= 12053;
+        $jy += 4 * intdiv($days, 1461);
+        $days %= 1461;
+        if ($days > 365) {
+            $jy += intdiv($days - 1, 365);
+            $days = ($days - 1) % 365;
+        }
+        if ($days < 186) {
+            $jm = 1 + intdiv($days, 31);
+            $jd = 1 + ($days % 31);
+        } else {
+            $jm = 7 + intdiv($days - 186, 30);
+            $jd = 1 + (($days - 186) % 30);
+        }
+
+        return [$jy, $jm, $jd];
+    }
+}
+
+if (!function_exists('format_date_fa')) {
+    /**
+     * Format a Y-m-d[ H:i:s] datetime as a readable Persian (Jalali) date.
+     * Invalid input yields an empty string.
+     */
+    function format_date_fa(?string $datetime): string
+    {
+        $datetime = trim((string) $datetime);
+        if ($datetime === '') {
+            return '';
+        }
+        $ts = strtotime($datetime);
+        if ($ts === false) {
+            return '';
+        }
+        [$jy, $jm, $jd] = gregorian_to_jalali(
+            (int) date('Y', $ts),
+            (int) date('n', $ts),
+            (int) date('j', $ts)
+        );
+        $months = [
+            1 => 'فروردین', 2 => 'اردیبهشت', 3 => 'خرداد', 4 => 'تیر',
+            5 => 'مرداد', 6 => 'شهریور', 7 => 'مهر', 8 => 'آبان',
+            9 => 'آذر', 10 => 'دی', 11 => 'بهمن', 12 => 'اسفند',
+        ];
+
+        return fa_digits((string) $jd) . ' ' . ($months[$jm] ?? '') . ' ' . fa_digits((string) $jy);
+    }
+}
+
+if (!function_exists('current_path')) {
+    /**
+     * The current request path (no query string), normalized. Used to mark
+     * the active navigation item.
+     */
+    function current_path(): string
+    {
+        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+        $path = parse_url($uri, PHP_URL_PATH) ?: '/';
+
+        return '/' . trim((string) $path, '/');
+    }
+}
+
 if (!function_exists('safe_redirect_path')) {
     /**
      * Accept only a local absolute path for an authentication redirect.
