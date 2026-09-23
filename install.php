@@ -414,9 +414,25 @@ if (is_file($lockFile)) {
                 $steps[] = 'Installer قفل شد و نصب مجدد بدون حذف قفل ممکن نیست.';
                 $installed = true;
             } catch (Throwable $e) {
-                $errors[] = $e instanceof PDOException
-                    ? 'اتصال یا عملیات دیتابیس ناموفق بود. اطلاعات دیتابیس را بررسی کنید.'
-                    : $e->getMessage();
+                // Never expose database credentials or connection details that may contain
+                // sensitive information. Give the installer enough diagnostic context to
+                // identify whether the failure happened during connection or schema setup.
+                if ($e instanceof PDOException) {
+                    $code = (string) $e->getCode();
+                    $driverMessage = trim($e->errorInfo[2] ?? '');
+                    $safeMessage = preg_replace(
+                        '/(?:password|passwd|pwd)=\\S+/i',
+                        'password=***',
+                        $driverMessage
+                    ) ?? $driverMessage;
+                    if ($safeMessage !== '') {
+                        $errors[] = 'دیتابیس خطا داد [' . $code . ']: ' . $safeMessage;
+                    } else {
+                        $errors[] = 'عملیات دیتابیس ناموفق بود [' . $code . ']. جزئیات خطا از طرف MySQL خالی است.';
+                    }
+                } else {
+                    $errors[] = 'نصب در یکی از مراحل دیتابیس متوقف شد: ' . $e->getMessage();
+                }
             }
         }
     }
