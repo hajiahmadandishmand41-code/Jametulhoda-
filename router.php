@@ -59,6 +59,7 @@ function define_routes(Router $router): void
             'mediaItems' => $mediaItems,
             'topics' => $topics,
             'isHome' => true,
+            'jsonLd' => organization_json_ld(),
         ]);
     });
 
@@ -197,7 +198,7 @@ function define_routes(Router $router): void
             $item = $repo->findPublishedDetail($type, $slug);
             if (!$item) {
                 http_response_code(404);
-                view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+                view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '', 'noindex' => true]);
                 return;
             }
 
@@ -228,6 +229,7 @@ function define_routes(Router $router): void
                 'related' => $repo->relatedPublished($id),
                 'media' => $media,
                 'gallery' => $gallery,
+                'jsonLd' => content_json_ld($item, $type),
             ]);
         });
     }
@@ -256,6 +258,7 @@ function define_routes(Router $router): void
             'page' => $page,
             'pages' => $pages,
             'total' => $total,
+            'noindex' => true,
         ]);
     });
 
@@ -263,7 +266,7 @@ function define_routes(Router $router): void
         $topic = (new TopicRepository())->findBySlug(rawurldecode($params['slug']));
         if (!$topic) {
             http_response_code(404);
-            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '', 'noindex' => true]);
             return;
         }
         $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -350,7 +353,7 @@ function define_routes(Router $router): void
         $item = $repo->findPublishedBySlug($slug);
         if (!$item) {
             http_response_code(404);
-            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '', 'noindex' => true]);
             return;
         }
 
@@ -372,6 +375,7 @@ function define_routes(Router $router): void
             'type' => 'book',
             'related' => $related,
             'media' => (new MediaRepository())->forContent($id),
+            'jsonLd' => content_json_ld($item, 'book'),
         ]);
     });
 
@@ -425,7 +429,7 @@ function define_routes(Router $router): void
         $item = $repo->findPublishedBySlug($slug);
         if (!$item) {
             http_response_code(404);
-            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '', 'noindex' => true]);
             return;
         }
 
@@ -455,6 +459,7 @@ function define_routes(Router $router): void
             'related' => $related,
             'media' => $media,
             'locked' => $locked,
+            'jsonLd' => content_json_ld($item, 'lesson'),
         ]);
     });
 
@@ -513,7 +518,7 @@ function define_routes(Router $router): void
         $item = $repo->findPublishedBySlug($slug);
         if (!$item) {
             http_response_code(404);
-            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '', 'noindex' => true]);
             return;
         }
 
@@ -530,6 +535,7 @@ function define_routes(Router $router): void
             'type' => 'research',
             'related' => $related,
             'media' => (new MediaRepository())->forContent($id),
+            'jsonLd' => content_json_ld($item, 'research'),
         ]);
     });
 
@@ -577,9 +583,9 @@ function define_routes(Router $router): void
     $router->get('/sitemap.xml', static function (): void {
         header('Content-Type: application/xml; charset=UTF-8');
         $now = date('Y-m-d\TH:i:sP');
-        $entries = [['loc' => url('/'), 'lastmod' => $now]];
+        $entries = [['loc' => absolute_url('/'), 'lastmod' => $now]];
         foreach (['/news', '/articles', '/reports', '/events', '/books', '/lessons', '/research', '/media'] as $listing) {
-            $entries[] = ['loc' => url($listing), 'lastmod' => $now];
+            $entries[] = ['loc' => absolute_url($listing), 'lastmod' => $now];
         }
         // A transient database problem must not break the whole sitemap:
         // it degrades to the static section list (crawlers retry later).
@@ -588,13 +594,13 @@ function define_routes(Router $router): void
             foreach (['news', 'article', 'report', 'event', 'book', 'lesson', 'research'] as $type) {
                 foreach ($repo->publicList($type, 50, 0) as $item) {
                     $entries[] = [
-                        'loc' => content_url($type, (string) $item['slug']),
+                        'loc' => absolute_url(content_url($type, (string) $item['slug'])),
                         'lastmod' => !empty($item['updated_at']) ? date('Y-m-d\TH:i:sP', strtotime((string) $item['updated_at'])) : $now,
                     ];
                 }
             }
             foreach ((new TopicRepository())->allActive() as $topic) {
-                $entries[] = ['loc' => url('/topics/' . rawurlencode((string) $topic['slug'])), 'lastmod' => $now];
+                $entries[] = ['loc' => absolute_url('/topics/' . rawurlencode((string) $topic['slug'])), 'lastmod' => $now];
             }
         } catch (Throwable $e) {
             log_error('Sitemap data load failed: ' . get_class($e));
@@ -614,7 +620,7 @@ function define_routes(Router $router): void
         echo "Disallow: /admin\n";
         echo "Disallow: /login\n";
         echo "Disallow: /search\n";
-        echo 'Sitemap: ' . url('/sitemap.xml') . "\n";
+        echo 'Sitemap: ' . absolute_url('/sitemap.xml') . "\n";
     });
 
     // Phase 4 newsroom: all mutations are admin-only and CSRF protected.
@@ -1529,6 +1535,7 @@ function define_routes(Router $router): void
         view('404', [
             'title' => 'صفحه پیدا نشد',
             'metaDescription' => '',
+            'noindex' => true,
         ]);
     });
 }

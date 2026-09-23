@@ -26,9 +26,9 @@ $pageTitle = (isset($title) && (string) $title !== '') ? $title . ' | ' . $appNa
 $description = (string) ($metaDescription ?? Config::get('app.description'));
 $authenticated = function_exists('isAuthenticated') && isAuthenticated();
 $logoutCsrfField = $authenticated && function_exists('csrf_field') ? csrf_field() : '';
-$canonical = url(current_path());
+$canonical = absolute_url(current_path());
 $ogType = (string) ($ogType ?? 'website');
-$ogImage = isset($ogImage) && (string) $ogImage !== '' ? (string) $ogImage : url('/assets/img/og-logo.svg');
+$ogImage = isset($ogImage) && (string) $ogImage !== '' ? absolute_url((string) $ogImage) : absolute_url('/assets/img/og-logo.svg');
 $noindex = !empty($noindex);
 $activePath = current_path();
 
