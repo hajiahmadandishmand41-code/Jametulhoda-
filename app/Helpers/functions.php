@@ -108,7 +108,12 @@ if (!function_exists('absolute_url')) {
         if (preg_match('#^https?://#i', $path) === 1) {
             return $path;
         }
-        $public = url($path);
+        $prefix = site_prefix();
+        // media_url() and a few callers may already return an installation-
+        // prefixed path. Avoid turning /site/uploads/x into /site/site/uploads/x.
+        $alreadyPrefixed = $prefix !== ''
+            && (str_starts_with($path, $prefix . '/') || $path === $prefix);
+        $public = $alreadyPrefixed ? $path : url($path);
         if (preg_match('#^https?://#i', $public) === 1) {
             return $public;
         }
@@ -363,6 +368,29 @@ if (!function_exists('media_url')) {
         }
 
         return url('/' . $clean);
+    }
+}
+
+if (!function_exists('media_file_exists')) {
+    /**
+     * Check a media registry path without ever allowing it to escape uploads.
+     * A stale DB row becomes a neutral empty state instead of a broken player.
+     */
+    function media_file_exists(string $diskPath): bool
+    {
+        $clean = ltrim(trim($diskPath), '/');
+        if ($clean === '' || !str_starts_with($clean, 'uploads/')
+            || str_contains($clean, '..') || str_contains($clean, "\0") || str_contains($clean, '\\')) {
+            return false;
+        }
+
+        $uploadsRoot = realpath((string) Config::get('app.base_path') . '/uploads');
+        $file = realpath((string) Config::get('app.base_path') . '/' . $clean);
+        if ($uploadsRoot === false || $file === false) {
+            return false;
+        }
+
+        return str_starts_with($file, $uploadsRoot . DIRECTORY_SEPARATOR) && is_file($file);
     }
 }
 

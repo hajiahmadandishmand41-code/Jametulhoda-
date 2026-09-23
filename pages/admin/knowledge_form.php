@@ -23,22 +23,22 @@ declare(strict_types=1);
 $isEdit = isset($item['id']) && (int) $item['id'] > 0;
 $errors = $errors ?? [];
 $attachedMedia = $attachedMedia ?? [];
-$postedMedia = $postedMedia ?? [];
+$postedMedia = $postedMedia ?? null;
 $item = is_array($item) ? $item : [];
 
-/** role => currently selected media ids (attached rows win over a failed POST) */
+/** role => currently selected media ids; submitted values win after validation errors. */
 $currentMedia = ['video' => [], 'audio' => [], 'document' => []];
-if ($attachedMedia !== []) {
+if (is_array($postedMedia)) {
+    foreach ($postedMedia as $role => $ids) {
+        if (isset($currentMedia[$role]) && is_array($ids)) {
+            $currentMedia[$role] = array_map('intval', $ids);
+        }
+    }
+} else {
     foreach ($attachedMedia as $m) {
         $role = (string) ($m['role'] ?? '');
         if (isset($currentMedia[$role])) {
             $currentMedia[$role][] = (int) $m['id'];
-        }
-    }
-} elseif ($postedMedia !== []) {
-    foreach ($postedMedia as $role => $ids) {
-        if (isset($currentMedia[$role]) && is_array($ids)) {
-            $currentMedia[$role] = array_map('intval', $ids);
         }
     }
 }
@@ -55,15 +55,15 @@ $statusOptions = ['draft' => 'پیش‌نویس', 'published' => 'منتشرشد
 </section>
 
 <?php if ($errors): ?>
-<div class="form-errors" role="alert">
-    <ul><?php foreach ($errors as $error): ?><li><?= e((string) $error) ?></li><?php endforeach; ?></ul>
+<div id="knowledge-form-errors" class="form-errors" role="alert">
+    <p><strong>فرم ذخیره نشد.</strong> موارد زیر را اصلاح کنید:</p><ul><?php foreach ($errors as $error): ?><li><?= e((string) $error) ?></li><?php endforeach; ?></ul>
 </div>
 <?php endif; ?>
 
-<form class="admin-form" method="post" action="<?= e($action) ?>" novalidate>
+<form class="admin-form" method="post" action="<?= e($action) ?>"<?= $errors ? ' aria-describedby="knowledge-form-errors"' : '' ?>>
     <?= csrf_field() ?>
 
-    <label>عنوان<input name="title" value="<?= e((string) ($item['title'] ?? '')) ?>" maxlength="250" required></label>
+    <label>عنوان <span class="required-mark" aria-hidden="true">*</span><input name="title" value="<?= e((string) ($item['title'] ?? '')) ?>" maxlength="250" required></label>
 
     <label>نامک (Slug) — خالی بگذارید تا از عنوان ساخته شود
         <input name="slug" value="<?= e((string) ($item['slug'] ?? '')) ?>" maxlength="190" dir="ltr">

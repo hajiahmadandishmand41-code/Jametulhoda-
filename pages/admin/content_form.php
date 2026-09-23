@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 $isEdit = isset($item['id']) && (int) $item['id'] > 0;
+$currentType = (string) ($item['content_type'] ?? 'news');
 $typeLabels = ['news' => 'خبر', 'article' => 'مقاله', 'event' => 'رویداد', 'report' => 'گزارش'];
 $statusOptions = ['draft' => 'پیش‌نویس', 'published' => 'منتشرشده', 'archived' => 'بایگانی'];
 $errors = $errors ?? [];
@@ -13,12 +14,12 @@ $attachedMedia = $attachedMedia ?? [];
 $relatedItems = $relatedItems ?? [];
 $relationOptions = $relationOptions ?? [];
 $gallery = $gallery ?? [];
-$postedMedia = $postedMedia ?? [];
+$postedMedia = $postedMedia ?? null;
 $postedRelations = $postedRelations ?? null;
 $postedGallery = $postedGallery ?? null;
 
 $currentMedia = ['video' => [], 'audio' => [], 'document' => []];
-if (!empty($postedMedia)) {
+if (is_array($postedMedia)) {
     foreach ($postedMedia as $role => $ids) {
         if (isset($currentMedia[$role]) && is_array($ids)) {
             $currentMedia[$role] = array_map('intval', $ids);
@@ -40,9 +41,9 @@ $currentGallery = is_array($postedGallery) ? array_map(static fn (array $row): i
     <a class="admin-button" href="<?= e(url('/admin/content')) ?>">بازگشت به فهرست</a>
 </section>
 
-<?php if ($errors): ?><div class="form-errors" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+<?php if ($errors): ?><div id="content-form-errors" class="form-errors" role="alert"><p><strong>فرم ذخیره نشد.</strong> موارد زیر را اصلاح کنید:</p><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
-<form class="admin-form" method="post" action="<?= e($action) ?>" novalidate>
+<form class="admin-form" method="post" action="<?= e($action) ?>"<?= $errors ? ' aria-describedby="content-form-errors"' : '' ?>>
     <?= csrf_field() ?>
     <label>نوع محتوا
         <select name="content_type" required <?= $isEdit ? 'disabled' : '' ?>>
@@ -51,10 +52,10 @@ $currentGallery = is_array($postedGallery) ? array_map(static fn (array $row): i
     </label>
     <?php if ($isEdit): ?><input type="hidden" name="content_type" value="<?= e((string) $item['content_type']) ?>"><?php endif; ?>
 
-    <label>عنوان<input name="title" value="<?= e((string) ($item['title'] ?? '')) ?>" maxlength="250" required></label>
+    <label>عنوان <span class="required-mark" aria-hidden="true">*</span><input name="title" value="<?= e((string) ($item['title'] ?? '')) ?>" maxlength="250" required></label>
     <label>Slug امن (خالی بگذارید تا از عنوان ساخته شود)<input name="slug" value="<?= e((string) ($item['slug'] ?? '')) ?>" maxlength="190" dir="ltr"></label>
     <label>خلاصه<textarea name="summary" maxlength="500" rows="3"><?= e((string) ($item['summary'] ?? '')) ?></textarea></label>
-    <label>متن<textarea name="body" rows="12"><?= e((string) ($item['body'] ?? '')) ?></textarea></label>
+    <label>متن اصلی <span class="field-help-inline">برای انتشار تکمیل شود</span><textarea name="body" rows="12" placeholder="متن محتوا را اینجا بنویسید…"><?= e((string) ($item['body'] ?? '')) ?></textarea></label>
 
     <label>موضوع
         <select name="topic_id"><option value="">بدون موضوع</option><?php foreach ($topics as $topic): ?><option value="<?= e((string) $topic['id']) ?>" <?= (string) ($item['topic_id'] ?? '') === (string) $topic['id'] ? 'selected' : '' ?>><?= e((string) $topic['title']) ?></option><?php endforeach; ?></select>
@@ -64,13 +65,13 @@ $currentGallery = is_array($postedGallery) ? array_map(static fn (array $row): i
         <select name="cover_media_id"><option value="">بدون تصویر</option><?php foreach ($coverMedia as $media): ?><option value="<?= e((string) $media['id']) ?>" <?= (string) ($item['cover_media_id'] ?? '') === (string) $media['id'] ? 'selected' : '' ?>><?= e((string) (($media['title'] ?? '') !== '' ? $media['title'] : ($media['original_name'] ?? ('رسانه ' . $media['id'])))) ?></option><?php endforeach; ?></select>
     </label>
 
-    <div class="content-extra-fields content-extra-event">
+    <div class="content-extra-fields content-extra-event"<?= $currentType === 'event' ? '' : ' hidden aria-hidden="true"' ?>>
         <label>زمان شروع رویداد<input type="datetime-local" name="starts_at" value="<?= e(!empty($item['starts_at']) ? str_replace(' ', 'T', substr((string) $item['starts_at'], 0, 16)) : '') ?>"></label>
         <label>زمان پایان رویداد<input type="datetime-local" name="ends_at" value="<?= e(!empty($item['ends_at']) ? str_replace(' ', 'T', substr((string) $item['ends_at'], 0, 16)) : '') ?>"></label>
         <label>مکان رویداد<input name="event_location" value="<?= e((string) ($item['location'] ?? '')) ?>" maxlength="250"></label>
     </div>
 
-    <div class="content-extra-fields content-extra-report">
+    <div class="content-extra-fields content-extra-report"<?= $currentType === 'report' ? '' : ' hidden aria-hidden="true"' ?>>
         <label>تاریخ گزارش<input type="date" name="event_date" value="<?= e((string) ($item['event_date'] ?? '')) ?>"></label>
         <label>مکان گزارش<input name="report_location" value="<?= e((string) ($item['location'] ?? '')) ?>" maxlength="250"></label>
         <label>گالری تصاویر گزارش

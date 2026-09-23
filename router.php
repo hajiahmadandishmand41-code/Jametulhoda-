@@ -119,8 +119,7 @@ function define_routes(Router $router): void
             redirect('/login?redirect=/admin');
         }
         if (!requireRole('editor')) {
-            http_response_code(403);
-            echo 'دسترسی مجاز نیست.';
+            admin_forbidden();
             return;
         }
 
@@ -174,17 +173,25 @@ function define_routes(Router $router): void
         $router->get('/' . $publicPath, static function () use ($type, $label, $intro, $publicPath): void {
             $page = max(1, (int) ($_GET['page'] ?? 1));
             $limit = 12;
-            $repo = new ContentRepository();
-            $total = $repo->publicCount($type);
-            $pages = max(1, (int) ceil($total / $limit));
-            $page = min($page, $pages);
+            $items = [];
+            $total = 0;
+            $pages = 1;
+            try {
+                $repo = new ContentRepository();
+                $total = $repo->publicCount($type);
+                $pages = max(1, (int) ceil($total / $limit));
+                $page = min($page, $pages);
+                $items = $repo->publicList($type, $limit, ($page - 1) * $limit);
+            } catch (Throwable $e) {
+                log_error('Public listing data load failed: ' . get_class($e));
+            }
             view('public_listing', [
                 'title' => $label,
                 'metaDescription' => $intro,
                 'heading' => $label,
                 'intro' => $intro,
                 'type' => $type,
-                'items' => $repo->publicList($type, $limit, ($page - 1) * $limit),
+                'items' => $items,
                 'page' => $page,
                 'pages' => $pages,
                 'total' => $total,
@@ -243,10 +250,19 @@ function define_routes(Router $router): void
         $repo = new ContentRepository();
 
         $tooShort = $q !== '' && mb_strlen($q, 'UTF-8') < $minLen;
-        $items = ($q === '' || $tooShort) ? [] : $repo->publicSearch($q, $limit, ($page - 1) * $limit);
-        $total = ($q === '' || $tooShort) ? 0 : $repo->publicCount(null, null, $q);
-        $pages = max(1, (int) ceil($total / $limit));
-        $page = min($page, $pages);
+        $items = [];
+        $total = 0;
+        $pages = 1;
+        if ($q !== '' && !$tooShort) {
+            try {
+                $items = $repo->publicSearch($q, $limit, ($page - 1) * $limit);
+                $total = $repo->publicCount(null, null, $q);
+                $pages = max(1, (int) ceil($total / $limit));
+                $page = min($page, $pages);
+            } catch (Throwable $e) {
+                log_error('Search data load failed: ' . get_class($e));
+            }
+        }
 
         view('search', [
             'title' => $q !== '' ? ('جستجو: ' . $q) : 'جستجو',
@@ -263,7 +279,12 @@ function define_routes(Router $router): void
     });
 
     $router->get('/topics/{slug}', static function (array $params): void {
-        $topic = (new TopicRepository())->findBySlug(rawurldecode($params['slug']));
+        try {
+            $topic = (new TopicRepository())->findBySlug(rawurldecode($params['slug']));
+        } catch (Throwable $e) {
+            log_error('Topic data load failed: ' . get_class($e));
+            $topic = null;
+        }
         if (!$topic) {
             http_response_code(404);
             view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '', 'noindex' => true]);
@@ -271,15 +292,23 @@ function define_routes(Router $router): void
         }
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $limit = 12;
-        $repo = new ContentRepository();
-        $total = $repo->publicCount(null, (int) $topic['id']);
-        $pages = max(1, (int) ceil($total / $limit));
-        $page = min($page, $pages);
+        $items = [];
+        $total = 0;
+        $pages = 1;
+        try {
+            $repo = new ContentRepository();
+            $total = $repo->publicCount(null, (int) $topic['id']);
+            $pages = max(1, (int) ceil($total / $limit));
+            $page = min($page, $pages);
+            $items = $repo->publicByTopic((int) $topic['id'], $limit, ($page - 1) * $limit);
+        } catch (Throwable $e) {
+            log_error('Topic content load failed: ' . get_class($e));
+        }
         view('topic', [
             'title' => (string) $topic['title'],
             'metaDescription' => excerpt((string) ($topic['description'] ?? ('آخرین محتوای مرتبط با ' . $topic['title'])), 160),
             'topic' => $topic,
-            'items' => $repo->publicByTopic((int) $topic['id'], $limit, ($page - 1) * $limit),
+            'items' => $items,
             'page' => $page,
             'pages' => $pages,
             'total' => $total,
@@ -624,16 +653,44 @@ function define_routes(Router $router): void
     });
 
     // Phase 4 newsroom: all mutations are admin-only and CSRF protected.
-    $adminOnly = static function (): bool { return requireRole('editor'); };
-    $superAdminOnly = static function (): bool { return requireRole('admin'); };
+    $adminOnly = static function (): bool {
+        if (!isAuthenticated()) {
+            redirect('/login?redirect=' . rawurlencode(current_path()));
+        }
+
+        return authorize('admin.access');
+    };
+    $superAdminOnly = static function (): bool {
+        if (!isAuthenticated()) {
+            redirect('/login?redirect=' . rawurlencode(current_path()));
+        }
+
+        return requireRole('admin');
+    };
     foreach (['news'=>'خبرها','article'=>'مقالات','report'=>'گزارش‌ها','event'=>'رویدادها'] as $contentAlias => $contentAliasLabel) {
         // Correct plural section path per alias (bug fix: news used to
         // register the broken URL /admin/newss).
         $adminSectionPath = ['news' => 'news', 'article' => 'articles', 'report' => 'reports', 'event' => 'events'][$contentAlias];
-        $router->get('/admin/' . $adminSectionPath, static function () use ($adminOnly, $contentAlias): void {
-            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
-            $repo = new ContentRepository(); $rows = $repo->adminList($contentAlias, null, '', 20, 0);
-            admin_view('content_registry', ['title'=>'مخزن ' . $contentAlias, 'rows'=>$rows, 'total'=>count($rows), 'page'=>1, 'pages'=>1, 'filters'=>['type'=>$contentAlias,'status'=>'','q'=>'']]);
+        $router->get('/admin/' . $adminSectionPath, static function () use ($adminOnly, $contentAlias, $contentAliasLabel, $adminSectionPath): void {
+            if (!$adminOnly()) { admin_forbidden(); return; }
+            $page = max(1, (int) ($_GET['page'] ?? 1));
+            $limit = 20;
+            $status = in_array($_GET['status'] ?? '', ContentRepository::STATUSES, true) ? (string) $_GET['status'] : null;
+            $q = is_string($_GET['q'] ?? null) ? mb_substr(trim((string) $_GET['q']), 0, 120, 'UTF-8') : '';
+            $repo = new ContentRepository();
+            $total = $repo->adminCount($contentAlias, $status, $q);
+            $pages = max(1, (int) ceil($total / $limit));
+            $page = min($page, $pages);
+            admin_view('content_registry', [
+                'title' => $contentAliasLabel,
+                'heading' => $contentAliasLabel,
+                'registryPath' => '/admin/' . $adminSectionPath,
+                'rows' => $repo->adminList($contentAlias, $status, $q, $limit, ($page - 1) * $limit),
+                'total' => $total,
+                'page' => $page,
+                'pages' => $pages,
+                'filters' => ['type' => $contentAlias, 'status' => $status ?? '', 'q' => $q],
+            ]);
         });
     }
     $contentTypeLabels = [
@@ -847,7 +904,7 @@ function define_routes(Router $router): void
     };
 
     $router->get('/admin/content', static function () use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $limit = 20;
         $type = in_array($_GET['type'] ?? '', ContentRepository::TYPES, true) ? (string) $_GET['type'] : null;
@@ -866,7 +923,7 @@ function define_routes(Router $router): void
     });
 
     $router->get('/admin/content/new', static function () use ($adminOnly, $contentFormData): void {
-        if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
         $type = in_array($_GET['type'] ?? '', ['news', 'article', 'report', 'event'], true) ? (string) $_GET['type'] : 'news';
         admin_view('content_form', $contentFormData(['content_type' => $type, 'status' => 'draft']) + [
             'title' => 'محتوای جدید',
@@ -876,8 +933,8 @@ function define_routes(Router $router): void
     });
 
     $router->add('POST', '/admin/content/new', static function () use ($adminOnly, $contentFormData, $validateContentPost, $syncContentLinks): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); echo 'درخواست نامعتبر است.'; return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
         $repo = new ContentRepository();
         [$errors, $data, $extra, $attachments, $relations, $gallery] = $validateContentPost($repo, null);
         if ($errors !== []) {
@@ -895,22 +952,22 @@ function define_routes(Router $router): void
     });
 
     $router->get('/admin/content/edit/{id}', static function (array $params) use ($adminOnly, $contentFormData): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
         $repo = new ContentRepository();
         $item = $repo->find((int) $params['id']);
-        if (!$item) { http_response_code(404); echo 'پیدا نشد'; return; }
+        if (!$item) { admin_not_found(); return; }
         if ($item['content_type'] === 'event') { $item = (new EventRepository())->find((int) $item['id']) ?? $item; }
         if ($item['content_type'] === 'report') { $item = (new ReportRepository())->find((int) $item['id']) ?? $item; }
         admin_view('content_form', $contentFormData($item) + ['title' => 'ویرایش محتوا', 'action' => url('/admin/content/edit/' . (int) $item['id']), 'item' => $item]);
     });
 
     $router->add('POST', '/admin/content/edit/{id}', static function (array $params) use ($adminOnly, $contentFormData, $validateContentPost, $syncContentLinks): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); echo 'درخواست نامعتبر است.'; return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
         $id = (int) $params['id'];
         $repo = new ContentRepository();
         $old = $repo->find($id);
-        if (!$old) { http_response_code(404); return; }
+        if (!$old) { admin_not_found(); return; }
         $_POST['content_type'] = (string) $old['content_type'];
         [$errors, $data, $extra, $attachments, $relations, $gallery] = $validateContentPost($repo, $id);
         if ($errors !== []) {
@@ -927,45 +984,95 @@ function define_routes(Router $router): void
     });
 
     $router->get('/admin/content/{id}', static function (array $params) use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
         redirect('/admin/content/edit/' . (int) $params['id']);
     });
 
     $router->add('POST', '/admin/content/{id}/publish', static function (array $params) use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
-        $item = (new ContentRepository())->find((int) $params['id']);
-        if (!$item || trim((string) $item['title']) === '' || trim((string) $item['body']) === '') { http_response_code(422); echo 'محتوای ناقص قابل انتشار نیست.'; return; }
-        (new ContentRepository())->publish((int) $params['id']);
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
+        $repo = new ContentRepository();
+        $id = (int) ($params['id'] ?? 0);
+        $item = $id > 0 ? $repo->find($id) : null;
+        if (!$item) { admin_not_found('محتوای مورد نظر وجود ندارد.'); return; }
+        if (trim((string) $item['title']) === '' || trim((string) $item['body']) === '') { admin_validation_error('محتوای ناقص قابل انتشار نیست؛ عنوان و متن را تکمیل کنید.'); return; }
+        $repo->publish($id);
         redirect('/admin/content', 303);
     });
 
     $router->add('POST', '/admin/content/{id}/unpublish', static function (array $params) use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
-        (new ContentRepository())->unpublish((int) $params['id']);
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
+        $repo = new ContentRepository();
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0 || !$repo->find($id)) { admin_not_found('محتوای مورد نظر وجود ندارد.'); return; }
+        $repo->unpublish($id);
         redirect('/admin/content', 303);
     });
 
     $router->add('POST', '/admin/content/{id}/archive', static function (array $params) use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
-        (new ContentRepository())->update((int) $params['id'], ['status' => 'archived']);
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
+        $repo = new ContentRepository();
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0 || !$repo->find($id)) { admin_not_found('محتوای مورد نظر وجود ندارد.'); return; }
+        $repo->update($id, ['status' => 'archived']);
         redirect('/admin/content', 303);
     });
 
     $router->add('POST', '/admin/content/{id}/delete', static function (array $params) use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
-        (new ContentRepository())->delete((int) $params['id']);
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
+        $repo = new ContentRepository();
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0 || !$repo->find($id)) { admin_not_found('محتوای مورد نظر وجود ندارد.'); return; }
+        $repo->delete($id);
         redirect('/admin/content', 303);
     });
 
-    $router->get('/admin/media', static function () use ($adminOnly): void { if (!$adminOnly()) { http_response_code(403); return; } admin_view('media', ['title' => 'کتابخانه رسانه', 'media' => db_all('SELECT * FROM `media` ORDER BY `created_at` DESC, `id` DESC LIMIT 200')]); });
+    $router->get('/admin/media', static function () use ($adminOnly): void {
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        $type = in_array($_GET['type'] ?? '', MediaRepository::TYPES, true) ? (string) $_GET['type'] : '';
+        $where = $type === '' ? '' : ' WHERE `media_type` = ?';
+        $params = $type === '' ? [] : [$type];
+        $media = db_all(
+            'SELECT m.*, (SELECT COUNT(*) FROM `content_media` cm WHERE cm.`media_id` = m.`id`) + (SELECT COUNT(*) FROM `report_images` ri WHERE ri.`media_id` = m.`id`) AS `usage_count`
+             FROM `media` m' . $where . ' ORDER BY m.`created_at` DESC, m.`id` DESC LIMIT 200',
+            $params
+        );
+        admin_view('media', ['title' => 'کتابخانه رسانه', 'media' => $media, 'activeType' => $type]);
+    });
+
+    $router->add('POST', '/admin/media/{id}/delete', static function (array $params) use ($adminOnly): void {
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+            admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.');
+            return;
+        }
+        $id = (int) ($params['id'] ?? 0);
+        $repo = new MediaRepository();
+        $media = $id > 0 ? $repo->find($id) : null;
+        if (!$media) {
+            admin_not_found('رسانه‌ای با این شناسه وجود ندارد.');
+            return;
+        }
+
+        $diskPath = (string) ($media['disk_path'] ?? '');
+        $repo->delete($id);
+        // The database row is authoritative. Remove only a real file that is
+        // inside uploads; a symlink or stale path is deliberately ignored.
+        if (media_file_exists($diskPath)) {
+            $absolute = realpath((string) Config::get('app.base_path') . '/' . ltrim($diskPath, '/'));
+            if ($absolute !== false) {
+                @unlink($absolute);
+            }
+        }
+        redirect('/admin/media', 303);
+    });
 
     $router->add('POST', '/admin/media', static function () use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
         $file = $_FILES['media'] ?? null;
         $allowed = [
             'image/jpeg' => ['jpg', 'image', 5 * 1024 * 1024],
@@ -977,59 +1084,113 @@ function define_routes(Router $router): void
             'video/mp4' => ['mp4', 'video', 80 * 1024 * 1024],
             'application/pdf' => ['pdf', 'document', 20 * 1024 * 1024],
         ];
-        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) { http_response_code(422); echo 'فایل نامعتبر است.'; return; }
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
+            admin_validation_error('فایل انتخاب‌شده کامل دریافت نشد. دوباره تلاش کنید.');
+            return;
+        }
         $original = (string) ($file['name'] ?? '');
         $originalExt = strtolower(pathinfo($original, PATHINFO_EXTENSION));
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string) $file['tmp_name']);
-        if (!is_string($mime) || !isset($allowed[$mime])) { http_response_code(422); echo 'نوع فایل مجاز نیست.'; return; }
+        if (!is_string($mime) || !isset($allowed[$mime])) {
+            admin_validation_error('این نوع فایل پشتیبانی نمی‌شود. فقط تصویر، صوت، ویدیو MP4 یا PDF مجاز است.');
+            return;
+        }
         [$extension, $type, $maxSize] = $allowed[$mime];
-        if ($originalExt !== $extension || (int) ($file['size'] ?? 0) <= 0 || (int) $file['size'] > $maxSize) { http_response_code(422); echo 'پسوند یا حجم فایل مجاز نیست.'; return; }
+        if ($originalExt !== $extension || (int) ($file['size'] ?? 0) <= 0 || (int) $file['size'] > $maxSize) {
+            admin_validation_error('پسوند فایل یا حجم آن با محدودیت این نوع رسانه سازگار نیست.');
+            return;
+        }
+        $title = trim((string) ($_POST['title'] ?? ''));
+        $altText = trim((string) ($_POST['alt_text'] ?? ''));
+        if (mb_strlen($title, 'UTF-8') > 250 || mb_strlen($altText, 'UTF-8') > 250) {
+            admin_validation_error('عنوان و متن جایگزین هرکدام حداکثر ۲۵۰ نویسه هستند.');
+            return;
+        }
         $name = bin2hex(random_bytes(18)) . '.' . $extension;
         $dir = (string) Config::get('app.base_path') . '/uploads/media';
-        if (!is_dir($dir) && !mkdir($dir, 0750, true)) { http_response_code(500); return; }
-        if (!move_uploaded_file((string) $file['tmp_name'], $dir . '/' . $name)) { http_response_code(500); return; }
-        (new MediaRepository())->create(['media_type' => $type, 'disk_path' => 'uploads/media/' . $name, 'original_name' => basename($original), 'mime_type' => $mime, 'file_size' => (int) $file['size'], 'title' => trim((string) ($_POST['title'] ?? '')), 'alt_text' => trim((string) ($_POST['alt_text'] ?? ''))]);
+        if (!is_dir($dir) && !mkdir($dir, 0750, true)) {
+            admin_status(500, 'ذخیرهٔ فایل ممکن نشد', 'پوشهٔ رسانه قابل نوشتن نیست. دسترسی پوشهٔ uploads را بررسی کنید.');
+            return;
+        }
+        $target = $dir . '/' . $name;
+        if (!move_uploaded_file((string) $file['tmp_name'], $target)) {
+            admin_status(500, 'ذخیرهٔ فایل ممکن نشد', 'فایل روی سرور ذخیره نشد. دوباره تلاش کنید.');
+            return;
+        }
+        try {
+            (new MediaRepository())->create(['media_type' => $type, 'disk_path' => 'uploads/media/' . $name, 'original_name' => basename($original), 'mime_type' => $mime, 'file_size' => (int) $file['size'], 'title' => $title, 'alt_text' => $altText]);
+        } catch (Throwable $e) {
+            @unlink($target);
+            throw $e;
+        }
         redirect('/admin/media', 303);
     });
 
-    $router->get('/admin/topics', static function () use ($adminOnly): void { if (!$adminOnly()) { http_response_code(403); return; } admin_view('topics', ['title' => 'موضوعات', 'topics' => db_all('SELECT * FROM `topics` ORDER BY `is_active` DESC, `sort_order` ASC, `title` ASC')]); });
+    $router->get('/admin/topics', static function () use ($adminOnly): void {
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        $topics = db_all(
+            'SELECT t.*, (SELECT COUNT(*) FROM `contents` c WHERE c.`topic_id` = t.`id`) AS `usage_count`
+             FROM `topics` t ORDER BY t.`is_active` DESC, t.`sort_order` ASC, t.`title` ASC'
+        );
+        admin_view('topics', ['title' => 'موضوعات', 'topics' => $topics]);
+    });
 
     $router->add('POST', '/admin/topics', static function () use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
         $r = new TopicRepository();
         $slug = slugify((string) ($_POST['slug'] ?? ''));
         $title = trim((string) ($_POST['title'] ?? ''));
         if ($slug === '') { $slug = slugify($title); }
-        if ($slug === '' || $title === '' || $r->slugExists($slug)) { http_response_code(422); echo 'موضوع نامعتبر یا تکراری است.'; return; }
-        $r->create(['slug' => $slug, 'title' => $title, 'description' => trim((string) ($_POST['description'] ?? '')), 'sort_order' => (int) ($_POST['sort_order'] ?? 0), 'is_active' => !empty($_POST['is_active'])]);
+        $description = trim((string) ($_POST['description'] ?? ''));
+        if ($slug === '' || $title === '' || mb_strlen($title, 'UTF-8') > 160 || mb_strlen($slug, 'UTF-8') > 160 || mb_strlen($description, 'UTF-8') > 500 || $r->slugExists($slug)) {
+            admin_validation_error('عنوان، نامک یا توضیح موضوع نامعتبر است؛ نامک باید یکتا باشد.');
+            return;
+        }
+        $r->create(['slug' => $slug, 'title' => $title, 'description' => $description, 'sort_order' => max(0, (int) ($_POST['sort_order'] ?? 0)), 'is_active' => !empty($_POST['is_active'])]);
         redirect('/admin/topics', 303);
     });
 
     $router->add('POST', '/admin/topics/{id}/edit', static function (array $params) use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
         $id = (int) $params['id'];
         $r = new TopicRepository();
         $slug = slugify((string) ($_POST['slug'] ?? ''));
         $title = trim((string) ($_POST['title'] ?? ''));
         if ($slug === '') { $slug = slugify($title); }
-        if ($id <= 0 || $slug === '' || $title === '' || $r->slugExists($slug, $id)) { http_response_code(422); echo 'موضوع نامعتبر یا تکراری است.'; return; }
-        $r->update($id, ['slug' => $slug, 'title' => $title, 'description' => trim((string) ($_POST['description'] ?? '')), 'sort_order' => (int) ($_POST['sort_order'] ?? 0), 'is_active' => !empty($_POST['is_active']) ? 1 : 0]);
+        $description = trim((string) ($_POST['description'] ?? ''));
+        if (!$r->find($id)) {
+            admin_not_found('موضوعی با این شناسه وجود ندارد.');
+            return;
+        }
+        if ($id <= 0 || $slug === '' || $title === '' || mb_strlen($title, 'UTF-8') > 160 || mb_strlen($slug, 'UTF-8') > 160 || mb_strlen($description, 'UTF-8') > 500 || $r->slugExists($slug, $id)) {
+            admin_validation_error('عنوان، نامک یا توضیح موضوع نامعتبر است؛ نامک باید یکتا باشد.');
+            return;
+        }
+        $r->update($id, ['slug' => $slug, 'title' => $title, 'description' => $description, 'sort_order' => max(0, (int) ($_POST['sort_order'] ?? 0)), 'is_active' => !empty($_POST['is_active']) ? 1 : 0]);
         redirect('/admin/topics', 303);
     });
 
     $router->add('POST', '/admin/topics/{id}/delete', static function (array $params) use ($adminOnly): void {
-        if (!$adminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
-        (new TopicRepository())->delete((int) $params['id']);
+        if (!$adminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
+        $repo = new TopicRepository();
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0 || !$repo->find($id)) {
+            admin_not_found('موضوعی با این شناسه وجود ندارد.');
+            return;
+        }
+        // The schema sets content.topic_id to NULL, so existing content is
+        // preserved and simply becomes uncategorized.
+        $repo->delete($id);
         redirect('/admin/topics', 303);
     });
 
-    $router->add('POST', '/admin/content/{id}/relation', static function (array $params) use ($adminOnly): void { if (!$adminOnly()) { http_response_code(403); return; } if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; } try { (new ContentRepository())->relate((int) $params['id'], (int) ($_POST['related_content_id'] ?? 0), (int) ($_POST['sort_order'] ?? 0)); } catch (Throwable $e) { http_response_code(422); echo 'رابط نامعتبر است.'; return; } redirect('/admin/content/edit/' . (int) $params['id'], 303); });
+    $router->add('POST', '/admin/content/{id}/relation', static function (array $params) use ($adminOnly): void { if (!$adminOnly()) { admin_forbidden(); return; } if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; } try { (new ContentRepository())->relate((int) $params['id'], (int) ($_POST['related_content_id'] ?? 0), (int) ($_POST['sort_order'] ?? 0)); } catch (Throwable $e) { admin_validation_error('رابط انتخابی معتبر نیست یا وجود ندارد.'); return; } redirect('/admin/content/edit/' . (int) $params['id'], 303); });
 
     $router->get('/admin/users', static function () use ($superAdminOnly): void {
-        if (!$superAdminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $limit = 30;
         $q = is_string($_GET['q'] ?? null) ? mb_substr(trim((string) $_GET['q']), 0, 120, 'UTF-8') : '';
@@ -1042,11 +1203,11 @@ function define_routes(Router $router): void
         admin_view('user_form', ['title' => isset($item['id']) ? 'ویرایش کاربر' : 'کاربر جدید', 'item' => $item, 'action' => $action, 'errors' => $errors]);
     };
 
-    $router->get('/admin/users/new', static function () use ($superAdminOnly, $renderUserForm): void { if (!$superAdminOnly()) { http_response_code(403); return; } $renderUserForm(['role' => 'user', 'is_active' => 1], url('/admin/users/new')); });
+    $router->get('/admin/users/new', static function () use ($superAdminOnly, $renderUserForm): void { if (!$superAdminOnly()) { admin_forbidden(); return; } $renderUserForm(['role' => 'user', 'is_active' => 1], url('/admin/users/new')); });
 
     $router->add('POST', '/admin/users/new', static function () use ($superAdminOnly, $renderUserForm): void {
-        if (!$superAdminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
         $password = (string) ($_POST['password'] ?? '');
         $confirm = (string) ($_POST['password_confirmation'] ?? '');
         $errors = [];
@@ -1058,15 +1219,15 @@ function define_routes(Router $router): void
         $renderUserForm(array_merge($_POST, ['is_active' => !empty($_POST['is_active']) ? 1 : 0]), url('/admin/users/new'), $errors);
     });
 
-    $router->get('/admin/users/edit/{id}', static function (array $params) use ($superAdminOnly, $renderUserForm): void { if (!$superAdminOnly()) { http_response_code(403); return; } $item = (new UserRepository())->find((int) $params['id']); if (!$item) { http_response_code(404); echo 'پیدا نشد'; return; } $renderUserForm($item, url('/admin/users/edit/' . (int) $item['id'])); });
+    $router->get('/admin/users/edit/{id}', static function (array $params) use ($superAdminOnly, $renderUserForm): void { if (!$superAdminOnly()) { admin_forbidden(); return; } $item = (new UserRepository())->find((int) $params['id']); if (!$item) { admin_not_found(); return; } $renderUserForm($item, url('/admin/users/edit/' . (int) $item['id'])); });
 
     $router->add('POST', '/admin/users/edit/{id}', static function (array $params) use ($superAdminOnly, $renderUserForm): void {
-        if (!$superAdminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
         $id = (int) $params['id'];
         $repo = new UserRepository();
         $old = $repo->find($id);
-        if (!$old) { http_response_code(404); return; }
+        if (!$old) { admin_not_found(); return; }
         $password = (string) ($_POST['password'] ?? '');
         $confirm = (string) ($_POST['password_confirmation'] ?? '');
         $errors = [];
@@ -1075,21 +1236,43 @@ function define_routes(Router $router): void
         $newActive = !empty($_POST['is_active']);
         if ((string) $old['role'] === 'admin' && ((string) $newRole !== 'admin' || !$newActive) && $repo->countActiveAdmins($id) < 1) { $errors[] = 'حداقل یک مدیر فعال باید باقی بماند.'; }
         if ($errors === []) {
-            try { $repo->updateUser($id, ['name' => $_POST['name'] ?? '', 'email' => $_POST['email'] ?? '', 'role' => $newRole, 'is_active' => $newActive, 'password' => $password]); redirect('/admin/users', 303); }
-            catch (Throwable $e) { $errors[] = $e instanceof DuplicateEmailException ? 'این ایمیل قبلاً ثبت شده است.' : 'اطلاعات کاربر معتبر نیست.'; }
+            try {
+                $repo->updateUser($id, ['name' => $_POST['name'] ?? '', 'email' => $_POST['email'] ?? '', 'role' => $newRole, 'is_active' => $newActive, 'password' => $password]);
+                $current = currentUser();
+                if ($current !== null && (int) $current['id'] === $id) {
+                    if (!$newActive) {
+                        auth_session_logout();
+                        redirect('/login', 303);
+                    }
+                    // Keep the current session aligned with the DB after a
+                    // self-edit; otherwise a demoted admin would retain the
+                    // old privilege until the next login.
+                    SessionManager::authenticate([
+                        'id' => $id,
+                        'name' => trim((string) ($_POST['name'] ?? '')),
+                        'email' => UserRepository::normalizeEmail((string) ($_POST['email'] ?? '')),
+                        'role' => $newRole,
+                        'is_active' => true,
+                    ]);
+                    csrf_regenerate();
+                }
+                redirect($newRole === 'admin' && $newActive ? '/admin/users' : ($newRole === 'editor' && $newActive ? '/admin' : '/'), 303);
+            } catch (Throwable $e) {
+                $errors[] = $e instanceof DuplicateEmailException ? 'این ایمیل قبلاً ثبت شده است.' : 'اطلاعات کاربر معتبر نیست.';
+            }
         }
         $renderUserForm(array_merge($old, $_POST, ['id' => $id, 'is_active' => $newActive ? 1 : 0]), url('/admin/users/edit/' . $id), $errors);
     });
 
     $router->add('POST', '/admin/users/{id}/delete', static function (array $params) use ($superAdminOnly): void {
-        if (!$superAdminOnly()) { http_response_code(403); return; }
-        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
+        if (!$superAdminOnly()) { admin_forbidden(); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return; }
         $id = (int) $params['id'];
         $repo = new UserRepository();
         $user = $repo->find($id);
         $current = currentUser();
-        if (!$user || ($current && (int) $current['id'] === $id)) { http_response_code(422); echo 'حذف این کاربر مجاز نیست.'; return; }
-        if ((string) $user['role'] === 'admin' && $repo->countActiveAdmins($id) < 1) { http_response_code(422); echo 'حداقل یک مدیر فعال باید باقی بماند.'; return; }
+        if (!$user || ($current && (int) $current['id'] === $id)) { admin_validation_error('حذف این کاربر مجاز نیست؛ کاربر جاری یا شناسهٔ نامعتبر انتخاب شده است.'); return; }
+        if ((string) $user['role'] === 'admin' && $repo->countActiveAdmins($id) < 1) { admin_validation_error('حداقل یک مدیر فعال باید باقی بماند.'); return; }
         $repo->delete($id);
         redirect('/admin/users', 303);
     });
@@ -1244,7 +1427,7 @@ function define_routes(Router $router): void
 
         // -------- registry (list) --------
         $router->get('/admin/' . $sectionPath, static function () use ($adminOnly, $sectionPath, $section, $type, $label): void {
-            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!$adminOnly()) { admin_forbidden(); return; }
             $page = max(1, (int) ($_GET['page'] ?? 1));
             $limit = 20;
             $q = is_string($_GET['q'] ?? null) ? trim((string) $_GET['q']) : '';
@@ -1281,7 +1464,7 @@ function define_routes(Router $router): void
 
         // -------- create --------
         $renderForm = static function (string $sectionPath, array $section, array $viewData) use ($adminOnly): void {
-            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!$adminOnly()) { admin_forbidden(); return; }
             $viewData += [
                 'sectionPath' => $sectionPath,
                 'section' => $section,
@@ -1297,7 +1480,7 @@ function define_routes(Router $router): void
         };
 
         $router->get('/admin/' . $sectionPath . '/new', static function () use ($renderForm, $sectionPath, $section, $type, $adminOnly): void {
-            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!$adminOnly()) { admin_forbidden(); return; }
             $item = ['content_type' => $type, 'status' => 'draft'];
             if (!empty($section['hasOrder'])) {
                 $item['sort_order'] = (new LessonRepository())->nextSortOrder();
@@ -1310,9 +1493,9 @@ function define_routes(Router $router): void
         });
 
         $router->add('POST', '/admin/' . $sectionPath . '/new', static function () use ($adminOnly, $sectionPath, $section, $type, $renderForm, $validateKnowledgePost, $validatedAttachments, $mediaIdsFromPost): void {
-            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!$adminOnly()) { admin_forbidden(); return; }
             if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
-                http_response_code(403); echo 'درخواست نامعتبر است.'; return;
+                admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return;
             }
 
             $contents = new ContentRepository();
@@ -1374,11 +1557,10 @@ function define_routes(Router $router): void
 
         // -------- edit --------
         $loadItem = static function (BaseRepository $repo, int $id) use ($adminOnly): ?array {
-            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return null; }
+            if (!$adminOnly()) { admin_forbidden(); return null; }
             $item = $repo->find($id);
             if (!$item) {
-                http_response_code(404);
-                echo 'پیدا نشد';
+                admin_not_found();
                 return null;
             }
             return $item;
@@ -1401,9 +1583,9 @@ function define_routes(Router $router): void
         });
 
         $router->add('POST', '/admin/' . $sectionPath . '/edit/{id}', static function (array $params) use ($adminOnly, $sectionPath, $section, $type, $renderForm, $validateKnowledgePost, $validatedAttachments, $loadItem): void {
-            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!$adminOnly()) { admin_forbidden(); return; }
             if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
-                http_response_code(403); echo 'درخواست نامعتبر است.'; return;
+                admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return;
             }
 
             $repo = match ($type) {
@@ -1413,7 +1595,7 @@ function define_routes(Router $router): void
             };
             $id = (int) $params['id'];
             $old = $repo->find($id);
-            if (!$old) { http_response_code(404); echo 'پیدا نشد'; return; }
+            if (!$old) { admin_not_found(); return; }
 
             $contents = new ContentRepository();
             [$errors, $data] = $validateKnowledgePost($contents, $type, $id);
@@ -1502,14 +1684,14 @@ function define_routes(Router $router): void
 
         // -------- delete --------
         $router->add('POST', '/admin/' . $sectionPath . '/{id}/delete', static function (array $params) use ($adminOnly, $sectionPath, $type): void {
-            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!$adminOnly()) { admin_forbidden(); return; }
             if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
-                http_response_code(403); echo 'درخواست نامعتبر است.'; return;
+                admin_status(403, 'درخواست نامعتبر است', 'نشست امنیتی فرم معتبر نیست. صفحه را تازه‌سازی کنید و دوباره تلاش کنید.'); return;
             }
             $repo = new ContentRepository();
             $item = $repo->find((int) $params['id']);
             if (!$item || (string) $item['content_type'] !== $type) {
-                http_response_code(404); echo 'پیدا نشد'; return;
+                admin_not_found(); return;
             }
             // The schema cascades: books/lessons/research row, content_media
             // and content_relations are removed with the contents row.

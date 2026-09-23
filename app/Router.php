@@ -92,8 +92,13 @@ final class Router
     {
         $method = strtoupper($method);
         $pathMatched = false;
+        $allowedMethods = [];
 
         foreach ($this->routes as $route) {
+            if (preg_match($route['regex'], $path)) {
+                $allowedMethods[$route['method']] = true;
+            }
+
             if (!preg_match($route['regex'], $path, $matches)) {
                 continue;
             }
@@ -111,7 +116,7 @@ final class Router
 
         if ($pathMatched) {
             http_response_code(405);
-            header('Allow: GET');
+            header('Allow: ' . implode(', ', array_keys($allowedMethods)));
             echo 'Method Not Allowed';
             return;
         }

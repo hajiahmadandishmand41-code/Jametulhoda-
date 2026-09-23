@@ -15,6 +15,7 @@ $roleLabels = ['admin' => 'مدیر', 'editor' => 'ویرایشگر', 'user' => 
         <p class="admin-kicker">دسترسی‌ها</p>
         <h2>کاربران</h2>
         <p><?= e(fa_digits((string) $total)) ?> حساب کاربری ثبت شده است.</p>
+        <div class="role-legend" aria-label="تعریف نقش‌ها"><span><strong>مدیر:</strong> کاربران و همهٔ تنظیمات محتوایی</span><span><strong>ویرایشگر:</strong> ایجاد و انتشار محتوا و رسانه</span><span><strong>کاربر:</strong> استفاده از بخش‌های نیازمند ورود</span></div>
     </div>
     <a class="admin-button" href="<?= e(url('/admin/users/new')) ?>">+ کاربر جدید</a>
 </section>
