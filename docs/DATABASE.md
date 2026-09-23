@@ -58,6 +58,8 @@ mysql -u USER -p DATABASE < database/seed.sql   # فقط توسعه/تست
 نگهداری اجرا کنید.
 
 ```text
+schema_migrations (metadata only)
+
 topics ──┐
          ├──> contents ──┬──> events          (1:1)
 media ───┘               ├──> reports  (1:1) ──> report_images ──> media
@@ -93,6 +95,9 @@ media ───┘               ├──> reports  (1:1) ──> report_images
   را ALTER نمی‌کند.
 - `lessons.requires_login` فقط «سیاست» را ثبت می‌کند؛ اعمال قفل در PHP و
   در هر درخواست انجام می‌شود (بدنه و رسانه‌ها هرگز برای مهمان ارسال نمی‌شوند).
+
+### `schema_migrations`
+ثبت migrationهایی که installer بررسی یا اجرا کرده است. این جدول هیچ credential یا دادهٔ کاربری ندارد و فقط `migration`، `checksum` و `applied_at` را نگه می‌دارد.
 
 ### `topics`
 تاکسونومی مشترک همه‌ی محتواها.
