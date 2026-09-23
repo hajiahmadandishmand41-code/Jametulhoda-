@@ -3,6 +3,14 @@
 -- Phase 3: content schema plus authentication (users and login attempts).
 -- Phase 2 content tables remain unchanged; authentication tables are added
 -- at the end of this file so installing this schema is additive and safe.
+-- Phase 6: knowledge content (books, lessons, research). Three new 1:1
+-- extension tables (`books`, `lessons`, `research`) are added after the
+-- tables they reference, and the `content_type` ENUMs are widened to also
+-- accept 'book', 'lesson' and 'research' (the events/reports CHECK
+-- constraints still pin those tables to their own type). Databases
+-- installed from an EARLIER schema need the additive migration in
+-- database/migrations/ — CREATE TABLE IF NOT EXISTS alone never alters an
+-- existing table (see docs/DATABASE.md).
 --
 -- Target:   MySQL 5.7+ / MariaDB 10.2+ (shared hosting, InfinityFree)
 -- Engine:   InnoDB (transactions + real foreign keys)
@@ -26,6 +34,7 @@
 -- disabling foreign_key_checks:
 --     topics -> media -> contents -> events -> reports
 --            -> report_images -> content_media -> content_relations
+--            -> books -> research -> lessons
 --     users and login_attempts have no foreign-key dependencies.
 --
 -- CHECK constraints are enforced by MySQL 8.0.16+ and MariaDB 10.2+.
@@ -107,7 +116,7 @@ CREATE TABLE IF NOT EXISTS `media` (
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `contents` (
     `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `content_type`   ENUM('article','news','event','report') NOT NULL,
+    `content_type`   ENUM('article','news','event','report','book','lesson','research') NOT NULL,
     `topic_id`       INT UNSIGNED    NULL DEFAULT NULL,
     `slug`           VARCHAR(190)    NOT NULL,
     `title`          VARCHAR(250)    NOT NULL,
@@ -145,7 +154,7 @@ CREATE TABLE IF NOT EXISTS `contents` (
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `events` (
     `content_id`   BIGINT UNSIGNED NOT NULL,
-    `content_type` ENUM('article','news','event','report') NOT NULL DEFAULT 'event',
+    `content_type` ENUM('article','news','event','report','book','lesson','research') NOT NULL DEFAULT 'event',
     `starts_at`    DATETIME        NOT NULL,
     `ends_at`      DATETIME        NULL DEFAULT NULL,
     `location`     VARCHAR(250)    NULL DEFAULT NULL,
@@ -166,7 +175,7 @@ CREATE TABLE IF NOT EXISTS `events` (
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `reports` (
     `content_id`   BIGINT UNSIGNED NOT NULL,
-    `content_type` ENUM('article','news','event','report') NOT NULL DEFAULT 'report',
+    `content_type` ENUM('article','news','event','report','book','lesson','research') NOT NULL DEFAULT 'report',
     `event_date`   DATE            NULL DEFAULT NULL,
     `location`     VARCHAR(250)    NULL DEFAULT NULL,
     PRIMARY KEY (`content_id`),
@@ -255,6 +264,65 @@ CREATE TABLE IF NOT EXISTS `content_relations` (
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT `fk_content_relations_related`
         FOREIGN KEY (`related_content_id`) REFERENCES `contents` (`id`)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- -------------------------------------------------------------
+-- books — 1:1 extension of a `contents` row of type 'book' (Phase 6).
+-- Same identical-type + CHECK pattern as `events` and `reports`; it adds
+-- the book-specific author field. Deleting the content row cascades.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `books` (
+    `content_id`   BIGINT UNSIGNED NOT NULL,
+    `content_type` ENUM('article','news','event','report','book','lesson','research') NOT NULL DEFAULT 'book',
+    `author`       VARCHAR(250) NULL DEFAULT NULL,
+    PRIMARY KEY (`content_id`),
+    KEY `idx_books_content_type` (`content_id`, `content_type`),
+    KEY `idx_books_author` (`author`),
+    CONSTRAINT `chk_books_type` CHECK (`content_type` = 'book'),
+    CONSTRAINT `fk_books_content`
+        FOREIGN KEY (`content_id`, `content_type`) REFERENCES `contents` (`id`, `content_type`)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------------
+-- research — 1:1 extension of a `contents` row of type 'research'.
+-- Adds the researcher/author field. Deleting the content row cascades.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `research` (
+    `content_id`   BIGINT UNSIGNED NOT NULL,
+    `content_type` ENUM('article','news','event','report','book','lesson','research') NOT NULL DEFAULT 'research',
+    `author`       VARCHAR(250) NULL DEFAULT NULL,
+    PRIMARY KEY (`content_id`),
+    KEY `idx_research_content_type` (`content_id`, `content_type`),
+    KEY `idx_research_author` (`author`),
+    CONSTRAINT `chk_research_type` CHECK (`content_type` = 'research'),
+    CONSTRAINT `fk_research_content`
+        FOREIGN KEY (`content_id`, `content_type`) REFERENCES `contents` (`id`, `content_type`)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------------------------------
+-- lessons — 1:1 extension of a `contents` row of type 'lesson'.
+-- `sort_order` gives the editor full control over the teaching sequence
+-- (the public list orders by it first). `requires_login` marks lessons
+-- whose body/attachments need an authenticated session — the guard is
+-- enforced in PHP on every request, the column only records the policy.
+-- Deleting the content row cascades.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `lessons` (
+    `content_id`     BIGINT UNSIGNED NOT NULL,
+    `content_type`   ENUM('article','news','event','report','book','lesson','research') NOT NULL DEFAULT 'lesson',
+    `sort_order`     INT        NOT NULL DEFAULT 0,
+    `requires_login` TINYINT(1) NOT NULL DEFAULT 0,
+    PRIMARY KEY (`content_id`),
+    KEY `idx_lessons_order` (`sort_order`),
+    KEY `idx_lessons_content_type` (`content_id`, `content_type`),
+    CONSTRAINT `chk_lessons_type` CHECK (`content_type` = 'lesson'),
+    CONSTRAINT `chk_lessons_requires_login` CHECK (`requires_login` IN (0, 1)),
+    CONSTRAINT `fk_lessons_content`
+        FOREIGN KEY (`content_id`, `content_type`) REFERENCES `contents` (`id`, `content_type`)
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

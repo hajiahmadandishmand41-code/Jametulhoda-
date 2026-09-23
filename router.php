@@ -126,6 +126,9 @@ function define_routes(Router $router): void
                 'news' => $contents->count(['content_type' => 'news']),
                 'event' => $contents->count(['content_type' => 'event']),
                 'report' => $contents->count(['content_type' => 'report']),
+                'book' => $contents->count(['content_type' => 'book']),
+                'lesson' => $contents->count(['content_type' => 'lesson']),
+                'research' => $contents->count(['content_type' => 'research']),
                 'media' => (new MediaRepository())->count(),
                 'topics' => (new TopicRepository())->count(['is_active' => 1]),
             ],
@@ -135,6 +138,9 @@ function define_routes(Router $router): void
                 'news' => 'خبرها',
                 'event' => 'رویدادها',
                 'report' => 'گزارش‌ها',
+                'book' => 'کتاب‌ها',
+                'lesson' => 'درس‌ها',
+                'research' => 'پژوهش‌ها',
             ],
         ]);
     });
@@ -270,24 +276,320 @@ function define_routes(Router $router): void
         ]);
     });
 
+    // -----------------------------------------------------------------
+    // Phase 6 — knowledge & multimedia surface.
+    // Same publication rule as Phase 5: only 'published' rows with
+    // published_at <= now ever leave the repository; the filter lives in
+    // the SQL layer, so draft/archived rows are unreachable by URL.
+    // -----------------------------------------------------------------
+
+    $router->get('/books', static function (): void {
+        // Like the home page, a listing is the section's entry point: a
+        // transient database problem degrades to an empty state, not a 500.
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = 12;
+        $q = is_string($_GET['q'] ?? null) ? trim((string) $_GET['q']) : '';
+        $q = mb_substr($q, 0, 120, 'UTF-8');
+        $topicSlug = is_string($_GET['topic'] ?? null) ? trim((string) $_GET['topic']) : '';
+        $items = [];
+        $total = 0;
+        $pages = 1;
+        $topics = [];
+        try {
+            $topics = (new TopicRepository())->allActive();
+            $topic = null;
+            foreach ($topics as $t) {
+                if ((string) $t['slug'] === $topicSlug) {
+                    $topic = $t;
+                    break;
+                }
+            }
+
+            $repo = new BookRepository();
+            $filters = ['q' => $q, 'topic' => $topic !== null ? (int) $topic['id'] : null];
+            $total = $repo->publicCount($filters);
+            $pages = max(1, (int) ceil($total / $limit));
+            $page = min($page, $pages);
+            $items = $repo->publicList($filters, $limit, ($page - 1) * $limit);
+        } catch (Throwable $e) {
+            log_error('Books listing data load failed: ' . get_class($e));
+            $items = [];
+            $total = 0;
+            $pages = 1;
+        }
+
+        view('knowledge_listing', [
+            'title' => 'کتاب‌ها',
+            'metaDescription' => 'کتاب‌های دینی و آموزشی منتشرشده؛ جستجو بر اساس عنوان یا نویسنده و موضوع.',
+            'heading' => 'کتاب‌ها',
+            'intro' => 'کتاب‌خانهٔ مذهبی پورتال؛ برای مطالعه کتابی را برگزینید.',
+            'sectionPath' => '/books',
+            'sectionLabel' => 'کتاب',
+            'items' => $items,
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
+            'query' => $q,
+            'topics' => $topics,
+            'activeTopicSlug' => $topicSlug,
+            'showAuthor' => true,
+        ]);
+    });
+
+    $router->get('/books/{slug}', static function (array $params): void {
+        $slug = rawurldecode($params['slug']);
+        $repo = new BookRepository();
+        $item = $repo->findPublishedBySlug($slug);
+        if (!$item) {
+            http_response_code(404);
+            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+            return;
+        }
+
+        $id = (int) $item['id'];
+        $related = (new ContentRepository())->relatedPublished($id);
+        if ($related === [] && !empty($item['topic_id'])) {
+            $related = array_slice($repo->publicList(
+                ['topic' => (int) $item['topic_id']],
+                5,
+                0
+            ), 0, 4);
+            $related = array_values(array_filter($related, static fn (array $r): bool => (int) $r['id'] !== $id));
+        }
+
+        view('public_detail', [
+            'title' => (string) $item['title'],
+            'metaDescription' => excerpt((string) ($item['summary'] ?? $item['body'] ?? ''), 160),
+            'item' => $item,
+            'type' => 'book',
+            'related' => $related,
+            'media' => (new MediaRepository())->forContent($id),
+        ]);
+    });
+
+    $router->get('/lessons', static function (): void {
+        // Same graceful degradation as the home page (see /books above).
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = 12;
+        $topicSlug = is_string($_GET['topic'] ?? null) ? trim((string) $_GET['topic']) : '';
+        $items = [];
+        $total = 0;
+        $pages = 1;
+        $topics = [];
+        try {
+            $topics = (new TopicRepository())->allActive();
+            $topic = null;
+            foreach ($topics as $t) {
+                if ((string) $t['slug'] === $topicSlug) {
+                    $topic = $t;
+                    break;
+                }
+            }
+
+            $repo = new LessonRepository();
+            $filters = ['topic' => $topic !== null ? (int) $topic['id'] : null];
+            $total = $repo->publicCount($filters);
+            $pages = max(1, (int) ceil($total / $limit));
+            $page = min($page, $pages);
+            $items = $repo->publicList($filters, $limit, ($page - 1) * $limit);
+        } catch (Throwable $e) {
+            log_error('Lessons listing data load failed: ' . get_class($e));
+        }
+
+        view('lessons', [
+            'title' => 'درس‌ها',
+            'metaDescription' => 'درس‌ها و دوره‌های آموزش مذهبی به ترتیب آموزشی.',
+            'heading' => 'درس‌ها',
+            'intro' => 'دوره‌های آموزشی به ترتیب آموزشی؛ از مقدماتی تا پیشرفته.',
+            'sectionPath' => '/lessons',
+            'items' => $items,
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
+            'topics' => $topics,
+            'activeTopicSlug' => $topicSlug,
+        ]);
+    });
+
+    $router->get('/lessons/{slug}', static function (array $params): void {
+        $slug = rawurldecode($params['slug']);
+        $repo = new LessonRepository();
+        $item = $repo->findPublishedBySlug($slug);
+        if (!$item) {
+            http_response_code(404);
+            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+            return;
+        }
+
+        $id = (int) $item['id'];
+        // Access rule (server-side; the view can only render what it gets):
+        // a login-required lesson shows its public teaser to guests, while
+        // the body and attached media are withheld entirely.
+        $locked = !empty($item['requires_login']) && !isAuthenticated();
+
+        $related = (new ContentRepository())->relatedPublished($id);
+        if ($related === []) {
+            $related = $repo->relatedPublished($id, !empty($item['topic_id']) ? (int) $item['topic_id'] : null);
+        }
+
+        if ($locked) {
+            $item['body'] = null;
+            $media = [];
+        } else {
+            $media = (new MediaRepository())->forContent($id);
+        }
+
+        view('public_detail', [
+            'title' => (string) $item['title'],
+            'metaDescription' => excerpt((string) ($item['summary'] ?? ''), 160),
+            'item' => $item,
+            'type' => 'lesson',
+            'related' => $related,
+            'media' => $media,
+            'locked' => $locked,
+        ]);
+    });
+
+    $router->get('/research', static function (): void {
+        // Same graceful degradation as the home page (see /books above).
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = 12;
+        $q = is_string($_GET['q'] ?? null) ? trim((string) $_GET['q']) : '';
+        $q = mb_substr($q, 0, 120, 'UTF-8');
+        $topicSlug = is_string($_GET['topic'] ?? null) ? trim((string) $_GET['topic']) : '';
+        $items = [];
+        $total = 0;
+        $pages = 1;
+        $topics = [];
+        try {
+            $topics = (new TopicRepository())->allActive();
+            $topic = null;
+            foreach ($topics as $t) {
+                if ((string) $t['slug'] === $topicSlug) {
+                    $topic = $t;
+                    break;
+                }
+            }
+
+            $repo = new ResearchRepository();
+            $filters = ['q' => $q, 'topic' => $topic !== null ? (int) $topic['id'] : null];
+            $total = $repo->publicCount($filters);
+            $pages = max(1, (int) ceil($total / $limit));
+            $page = min($page, $pages);
+            $items = $repo->publicList($filters, $limit, ($page - 1) * $limit);
+        } catch (Throwable $e) {
+            log_error('Research listing data load failed: ' . get_class($e));
+        }
+
+        view('knowledge_listing', [
+            'title' => 'پژوهش‌ها',
+            'metaDescription' => 'پژوهش‌های دینی و مذهبی؛ مطالعهٔ متن کامل پژوهش‌ها.',
+            'heading' => 'پژوهش‌ها',
+            'intro' => 'مطالعات و پژوهش‌های علمی حوزوی و دینی.',
+            'sectionPath' => '/research',
+            'sectionLabel' => 'پژوهش',
+            'items' => $items,
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
+            'query' => $q,
+            'topics' => $topics,
+            'activeTopicSlug' => $topicSlug,
+            'showAuthor' => true,
+        ]);
+    });
+
+    $router->get('/research/{slug}', static function (array $params): void {
+        $slug = rawurldecode($params['slug']);
+        $repo = new ResearchRepository();
+        $item = $repo->findPublishedBySlug($slug);
+        if (!$item) {
+            http_response_code(404);
+            view('404', ['title' => 'صفحه پیدا نشد', 'metaDescription' => '']);
+            return;
+        }
+
+        $id = (int) $item['id'];
+        $related = (new ContentRepository())->relatedPublished($id);
+        if ($related === []) {
+            $related = $repo->relatedPublished($id, !empty($item['topic_id']) ? (int) $item['topic_id'] : null);
+        }
+
+        view('public_detail', [
+            'title' => (string) $item['title'],
+            'metaDescription' => excerpt((string) ($item['summary'] ?? $item['body'] ?? ''), 160),
+            'item' => $item,
+            'type' => 'research',
+            'related' => $related,
+            'media' => (new MediaRepository())->forContent($id),
+        ]);
+    });
+
+    $router->get('/media', static function (): void {
+        $type = in_array($_GET['type'] ?? '', ['video', 'audio'], true) ? (string) $_GET['type'] : null;
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = 12;
+        $viewerAuthenticated = isAuthenticated();
+        $items = [];
+        $total = 0;
+        $pages = 1;
+        $relatedByMedia = [];
+
+        // One page query + one count + one batched related-content query —
+        // no per-card extra round trips. A transient database problem
+        // degrades to the empty state instead of a 500.
+        try {
+            $repo = new MediaRepository();
+            $total = $repo->publicHubCount($type, $viewerAuthenticated);
+            $pages = max(1, (int) ceil($total / $limit));
+            $page = min($page, $pages);
+            $items = $repo->publicHubList($type, $viewerAuthenticated, $limit, ($page - 1) * $limit);
+            $relatedByMedia = $repo->publishedContentsForMedia(
+                array_map(static fn (array $m): int => (int) $m['id'], $items),
+                $viewerAuthenticated
+            );
+        } catch (Throwable $e) {
+            log_error('Media hub data load failed: ' . get_class($e));
+        }
+
+        view('media_hub', [
+            'title' => 'رسانه',
+            'metaDescription' => 'مرکز چندرسانه‌ای؛ ویدیوها و فایل‌های صوتی آموزشی و مذهبی.',
+            'heading' => 'مرکز رسانه',
+            'intro' => 'ویدیوها و فایل‌های صوتی منتشرشده در یک نگاه.',
+            'items' => $items,
+            'relatedByMedia' => $relatedByMedia,
+            'activeType' => $type,
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
+        ]);
+    });
+
     $router->get('/sitemap.xml', static function (): void {
         header('Content-Type: application/xml; charset=UTF-8');
-        $repo = new ContentRepository();
         $now = date('Y-m-d\TH:i:sP');
         $entries = [['loc' => url('/'), 'lastmod' => $now]];
-        foreach (['/news', '/articles', '/reports', '/events'] as $listing) {
+        foreach (['/news', '/articles', '/reports', '/events', '/books', '/lessons', '/research', '/media'] as $listing) {
             $entries[] = ['loc' => url($listing), 'lastmod' => $now];
         }
-        foreach (['news', 'article', 'report', 'event'] as $type) {
-            foreach ($repo->publicList($type, 50, 0) as $item) {
-                $entries[] = [
-                    'loc' => content_url($type, (string) $item['slug']),
-                    'lastmod' => !empty($item['updated_at']) ? date('Y-m-d\TH:i:sP', strtotime((string) $item['updated_at'])) : $now,
-                ];
+        // A transient database problem must not break the whole sitemap:
+        // it degrades to the static section list (crawlers retry later).
+        try {
+            $repo = new ContentRepository();
+            foreach (['news', 'article', 'report', 'event', 'book', 'lesson', 'research'] as $type) {
+                foreach ($repo->publicList($type, 50, 0) as $item) {
+                    $entries[] = [
+                        'loc' => content_url($type, (string) $item['slug']),
+                        'lastmod' => !empty($item['updated_at']) ? date('Y-m-d\TH:i:sP', strtotime((string) $item['updated_at'])) : $now,
+                    ];
+                }
             }
-        }
-        foreach ((new TopicRepository())->allActive() as $topic) {
-            $entries[] = ['loc' => url('/topics/' . rawurlencode((string) $topic['slug'])), 'lastmod' => $now];
+            foreach ((new TopicRepository())->allActive() as $topic) {
+                $entries[] = ['loc' => url('/topics/' . rawurlencode((string) $topic['slug'])), 'lastmod' => $now];
+            }
+        } catch (Throwable $e) {
+            log_error('Sitemap data load failed: ' . get_class($e));
         }
         echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
@@ -310,7 +612,10 @@ function define_routes(Router $router): void
     // Phase 4 newsroom: all mutations are admin-only and CSRF protected.
     $adminOnly = static function (): bool { return requireRole('admin'); };
     foreach (['news'=>'خبرها','article'=>'مقالات','report'=>'گزارش‌ها','event'=>'رویدادها'] as $contentAlias => $contentAliasLabel) {
-        $router->get('/admin/' . ($contentAlias === 'article' ? 'articles' : $contentAlias . 's'), static function () use ($adminOnly, $contentAlias): void {
+        // Correct plural section path per alias (bug fix: news used to
+        // register the broken URL /admin/newss).
+        $adminSectionPath = ['news' => 'news', 'article' => 'articles', 'report' => 'reports', 'event' => 'events'][$contentAlias];
+        $router->get('/admin/' . $adminSectionPath, static function () use ($adminOnly, $contentAlias): void {
             if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
             $repo = new ContentRepository(); $rows = $repo->adminList($contentAlias, null, '', 20, 0);
             admin_view('content_registry', ['title'=>'مخزن ' . $contentAlias, 'rows'=>$rows, 'total'=>count($rows), 'page'=>1, 'pages'=>1, 'filters'=>['type'=>$contentAlias,'status'=>'','q'=>'']]);
@@ -372,6 +677,430 @@ function define_routes(Router $router): void
     $router->get('/admin/topics', static function () use ($adminOnly): void { if(!$adminOnly()){http_response_code(403);return;} admin_view('topics',['title'=>'موضوعات','topics'=>(new TopicRepository())->allActive()]); });
     $router->add('POST', '/admin/topics', static function () use ($adminOnly): void { if(!$adminOnly()){http_response_code(403);return;} if(!csrf_verify(is_string($_POST[Csrf::FIELD]??null)?$_POST[Csrf::FIELD]:null)){http_response_code(403);return;} $r=new TopicRepository();$slug=slugify((string)($_POST['slug']??''));$title=trim((string)($_POST['title']??''));if($slug===''||$title===''||$r->slugExists($slug)){http_response_code(422);echo'موضوع نامعتبر یا تکراری است.';return;} $r->create(['slug'=>$slug,'title'=>$title,'description'=>trim((string)($_POST['description']??''))]);redirect('/admin/topics',303); });
     $router->add('POST', '/admin/content/{id}/relation', static function (array $params) use ($adminOnly): void { if(!$adminOnly()){http_response_code(403);return;}if(!csrf_verify(is_string($_POST[Csrf::FIELD]??null)?$_POST[Csrf::FIELD]:null)){http_response_code(403);return;}try{(new ContentRepository())->relate((int)$params['id'],(int)($_POST['related_content_id']??0),(int)($_POST['sort_order']??0));}catch(Throwable $e){http_response_code(422);echo'رابط نامعتبر است.';return;}redirect('/admin/content/edit/'.(int)$params['id'],303); });
+
+    // -----------------------------------------------------------------
+    // Phase 6 — knowledge admin (books, lessons, research).
+    // One parameterized route family for the three sections; every route
+    // is admin-only and every mutation is CSRF protected. Persistence goes
+    // through ContentRepository + the section's extension repository; no
+    // SQL lives in the route handlers.
+    // -----------------------------------------------------------------
+    $knowledgeSections = [
+        'books' => [
+            'type'       => 'book',
+            'label'      => 'کتاب‌ها',
+            'singular'   => 'کتاب',
+            'intro'      => 'مدیریت کتاب‌خانهٔ پورتال',
+            'hasAuthor'  => true,
+            'hasOrder'   => false,
+            'hasLock'    => false,
+        ],
+        'lessons' => [
+            'type'       => 'lesson',
+            'label'      => 'درس‌ها',
+            'singular'   => 'درس',
+            'intro'      => 'مدیریت درس‌ها و دوره‌های آموزشی',
+            'hasAuthor'  => false,
+            'hasOrder'   => true,
+            'hasLock'    => true,
+        ],
+        'research' => [
+            'type'       => 'research',
+            'label'      => 'پژوهش‌ها',
+            'singular'   => 'پژوهش',
+            'intro'      => 'مدیریت پژوهش‌ها و مطالعات',
+            'hasAuthor'  => true,
+            'hasOrder'   => false,
+            'hasLock'    => false,
+        ],
+    ];
+
+    /** Normalized int-id list from a media multi-select. */
+    $mediaIdsFromPost = static function (string $field): array {
+        $raw = $_POST[$field] ?? [];
+        if (!is_array($raw)) {
+            return [];
+        }
+        $ids = [];
+        foreach ($raw as $value) {
+            if (is_numeric($value) && (int) $value > 0) {
+                $ids[] = (int) $value;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    };
+
+    /**
+     * Validate one attachment list: every id must exist and match the role's
+     * media type. Returns [ids, error|null].
+     */
+    $validatedAttachments = static function (array $ids, string $role, MediaRepository $mediaRepo) use ($mediaIdsFromPost): array {
+        $ids = $mediaIdsFromPost('media_' . $role);
+        foreach ($ids as $mediaId) {
+            $row = $mediaRepo->find($mediaId);
+            if (!$row || (string) $row['media_type'] !== $role) {
+                return [[], 'رسانهٔ انتخابی برای ' . ($role === 'video' ? 'ویدیو' : ($role === 'audio' ? 'صوت' : 'پیوست')) . ' نامعتبر است.'];
+            }
+        }
+
+        return [$ids, null];
+    };
+
+    /** Validate + normalize the shared content form fields. */
+    $validateKnowledgePost = static function (ContentRepository $contents, string $type, ?int $ignoreId): array {
+        $errors = [];
+        $title = trim((string) ($_POST['title'] ?? ''));
+        $slug = slugify((string) ($_POST['slug'] ?? ''));
+        if ($slug === '') {
+            $slug = slugify($title);
+        }
+        $status = (string) ($_POST['status'] ?? 'draft');
+        $summary = trim((string) ($_POST['summary'] ?? ''));
+        $body = trim((string) ($_POST['body'] ?? ''));
+        $publishedAtRaw = trim((string) ($_POST['published_at'] ?? ''));
+
+        if ($title === '' || mb_strlen($title, 'UTF-8') > 250) {
+            $errors[] = 'عنوان الزامی است و حداکثر ۲۵۰ نویسه است.';
+        }
+        if ($slug === '' || mb_strlen($slug, 'UTF-8') > 190) {
+            $errors[] = 'نامک (slug) نامعتبر است.';
+        } elseif ($contents->slugExists($type, $slug, $ignoreId)) {
+            $errors[] = 'این نامک قبلاً استفاده شده است.';
+        }
+        if (!in_array($status, ContentRepository::STATUSES, true)) {
+            $errors[] = 'وضعیت نامعتبر است.';
+        }
+        if (mb_strlen($summary, 'UTF-8') > 500) {
+            $errors[] = 'خلاصه حداکثر ۵۰۰ نویسه است.';
+        }
+
+        $topicId = null;
+        $topicRaw = trim((string) ($_POST['topic_id'] ?? ''));
+        if ($topicRaw !== '') {
+            $topicId = is_numeric($topicRaw) ? (int) $topicRaw : 0;
+            if ($topicId <= 0 || !(new TopicRepository())->find($topicId)) {
+                $errors[] = 'موضوع انتخابی نامعتبر است.';
+                $topicId = null;
+            }
+        }
+
+        $coverId = null;
+        $coverRaw = trim((string) ($_POST['cover_media_id'] ?? ''));
+        if ($coverRaw !== '') {
+            $coverId = is_numeric($coverRaw) ? (int) $coverRaw : 0;
+            $cover = $coverId > 0 ? (new MediaRepository())->find($coverId) : null;
+            if (!$cover || (string) $cover['media_type'] !== 'image') {
+                $errors[] = 'تصویر جلد نامعتبر است.';
+                $coverId = null;
+            }
+        }
+
+        $publishedAt = null;
+        if ($publishedAtRaw !== '') {
+            $candidate = str_replace('T', ' ', $publishedAtRaw);
+            if (strlen($candidate) === 16) {
+                $candidate .= ':00';
+            }
+            $dt = DateTime::createFromFormat('Y-m-d H:i:s', $candidate);
+            $publishedAt = $dt ? $dt->format('Y-m-d H:i:s') : null;
+            if ($publishedAt === null) {
+                $errors[] = 'تاریخ انتشار نامعتبر است.';
+            }
+        }
+
+        return [$errors, [
+            'title'        => $title,
+            'slug'         => $slug,
+            'summary'      => $summary,
+            'body'         => $body,
+            'status'       => $status,
+            'topic_id'     => $topicId,
+            'cover_media_id' => $coverId,
+            'published_at' => $publishedAt,
+        ]];
+    };
+
+    foreach ($knowledgeSections as $sectionPath => $section) {
+        $type = $section['type'];
+        $label = $section['label'];
+        $singular = $section['singular'];
+
+        // -------- registry (list) --------
+        $router->get('/admin/' . $sectionPath, static function () use ($adminOnly, $sectionPath, $section, $type, $label): void {
+            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            $page = max(1, (int) ($_GET['page'] ?? 1));
+            $limit = 20;
+            $q = is_string($_GET['q'] ?? null) ? trim((string) $_GET['q']) : '';
+            $q = mb_substr($q, 0, 120, 'UTF-8');
+            $status = in_array($_GET['status'] ?? '', ContentRepository::STATUSES, true) ? (string) $_GET['status'] : null;
+            $repo = new ContentRepository();
+            $total = $repo->adminCount($type, $status, $q);
+            $rows = $repo->adminList($type, $status, $q, $limit, ($page - 1) * $limit);
+
+            // Extension data (author / sort order) for the table, in one
+            // batched query per section — no per-row round trips.
+            $extra = [];
+            $ids = array_map(static fn (array $r): int => (int) $r['id'], $rows);
+            $table = ['book' => 'books', 'lesson' => 'lessons', 'research' => 'research'][$type] ?? '';
+            if ($ids !== [] && $table !== '') {
+                $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                foreach (db_all("SELECT * FROM `$table` WHERE `content_id` IN ($placeholders)", $ids) as $row) {
+                    $extra[(int) $row['content_id']] = $row;
+                }
+            }
+
+            admin_view('knowledge_registry', [
+                'title' => $label,
+                'sectionPath' => $sectionPath,
+                'section' => $section,
+                'rows' => $rows,
+                'extra' => $extra,
+                'total' => $total,
+                'page' => $page,
+                'pages' => max(1, (int) ceil($total / $limit)),
+                'filters' => ['q' => $q, 'status' => $status ?? ''],
+            ]);
+        });
+
+        // -------- create --------
+        $renderForm = static function (string $sectionPath, array $section, array $viewData) use ($adminOnly): void {
+            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            $viewData += [
+                'sectionPath' => $sectionPath,
+                'section' => $section,
+                'topics' => (new TopicRepository())->allActive(),
+                'mediaByRole' => [
+                    'video' => (new MediaRepository())->listByType('video', 200, 0),
+                    'audio' => (new MediaRepository())->listByType('audio', 200, 0),
+                    'document' => (new MediaRepository())->listByType('document', 200, 0),
+                ],
+                'coverMedia' => (new MediaRepository())->listByType('image', 200, 0),
+            ];
+            admin_view('knowledge_form', $viewData);
+        };
+
+        $router->get('/admin/' . $sectionPath . '/new', static function () use ($renderForm, $sectionPath, $section, $type, $adminOnly): void {
+            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            $item = ['content_type' => $type, 'status' => 'draft'];
+            if (!empty($section['hasOrder'])) {
+                $item['sort_order'] = (new LessonRepository())->nextSortOrder();
+            }
+            $renderForm($sectionPath, $section, [
+                'title' => $section['singular'] . ' جدید',
+                'action' => url('/admin/' . $sectionPath . '/new'),
+                'item' => $item,
+            ]);
+        });
+
+        $router->add('POST', '/admin/' . $sectionPath . '/new', static function () use ($adminOnly, $sectionPath, $section, $type, $renderForm, $validateKnowledgePost, $validatedAttachments, $mediaIdsFromPost): void {
+            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+                http_response_code(403); echo 'درخواست نامعتبر است.'; return;
+            }
+
+            $contents = new ContentRepository();
+            [$errors, $data] = $validateKnowledgePost($contents, $type, null);
+
+            $author = null;
+            if (!empty($section['hasAuthor'])) {
+                $author = trim((string) ($_POST['author'] ?? ''));
+                if (mb_strlen($author, 'UTF-8') > 250) {
+                    $errors[] = 'نام نویسنده حداکثر ۲۵۰ نویسه است.';
+                }
+            }
+            $sortOrder = 0;
+            if (!empty($section['hasOrder'])) {
+                $sortOrder = max(0, (int) ($_POST['sort_order'] ?? 0));
+            }
+            $requiresLogin = !empty($section['hasLock']) && !empty($_POST['requires_login']);
+
+            $mediaRepo = new MediaRepository();
+            $attachments = [];
+            foreach (['video', 'audio', 'document'] as $role) {
+                [$ids, $attachError] = $validatedAttachments([], $role, $mediaRepo);
+                if ($attachError !== null) { $errors[] = $attachError; }
+                $attachments[$role] = $ids;
+            }
+
+            if ($errors !== []) {
+                // Validation failed: re-render the form (HTTP 200) with the
+                // Persian errors and the submitted values redisplayed.
+                $renderForm($sectionPath, $section, [
+                    'title' => $section['singular'] . ' جدید',
+                    'action' => url('/admin/' . $sectionPath . '/new'),
+                    'item' => array_merge($_POST, ['content_type' => $type]),
+                    'errors' => $errors,
+                    'postedMedia' => $attachments,
+                ]);
+                return;
+            }
+
+            $contentId = db_transaction(static function () use ($contents, $data, $type, $author, $sortOrder, $requiresLogin, $attachments, $mediaRepo): int {
+                $id = $contents->create($data + ['content_type' => $type]);
+                if ($type === 'book') {
+                    (new BookRepository())->save($id, $author);
+                } elseif ($type === 'research') {
+                    (new ResearchRepository())->save($id, $author);
+                } elseif ($type === 'lesson') {
+                    (new LessonRepository())->save($id, $sortOrder, $requiresLogin);
+                }
+                foreach ($attachments as $role => $ids) {
+                    foreach ($ids as $i => $mediaId) {
+                        $mediaRepo->attachToContent($id, $mediaId, $role, $i);
+                    }
+                }
+                return $id;
+            });
+
+            redirect('/admin/' . $sectionPath, 303);
+        });
+
+        // -------- edit --------
+        $loadItem = static function (BaseRepository $repo, int $id) use ($adminOnly): ?array {
+            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return null; }
+            $item = $repo->find($id);
+            if (!$item) {
+                http_response_code(404);
+                echo 'پیدا نشد';
+                return null;
+            }
+            return $item;
+        };
+
+        $router->get('/admin/' . $sectionPath . '/edit/{id}', static function (array $params) use ($renderForm, $sectionPath, $section, $adminOnly, $loadItem): void {
+            $repo = match ((string) $section['type']) {
+                'book' => new BookRepository(),
+                'lesson' => new LessonRepository(),
+                default => new ResearchRepository(),
+            };
+            $item = $loadItem($repo, (int) $params['id']);
+            if (!$item) { return; }
+            $renderForm($sectionPath, $section, [
+                'title' => 'ویرایش ' . $section['singular'],
+                'action' => url('/admin/' . $sectionPath . '/edit/' . (int) $item['id']),
+                'item' => $item,
+                'attachedMedia' => (new MediaRepository())->forContent((int) $item['id']),
+            ]);
+        });
+
+        $router->add('POST', '/admin/' . $sectionPath . '/edit/{id}', static function (array $params) use ($adminOnly, $sectionPath, $section, $type, $renderForm, $validateKnowledgePost, $validatedAttachments, $loadItem): void {
+            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+                http_response_code(403); echo 'درخواست نامعتبر است.'; return;
+            }
+
+            $repo = match ($type) {
+                'book' => new BookRepository(),
+                'lesson' => new LessonRepository(),
+                default => new ResearchRepository(),
+            };
+            $id = (int) $params['id'];
+            $old = $repo->find($id);
+            if (!$old) { http_response_code(404); echo 'پیدا نشد'; return; }
+
+            $contents = new ContentRepository();
+            [$errors, $data] = $validateKnowledgePost($contents, $type, $id);
+
+            $author = null;
+            if (!empty($section['hasAuthor'])) {
+                $author = trim((string) ($_POST['author'] ?? ''));
+                if (mb_strlen($author, 'UTF-8') > 250) {
+                    $errors[] = 'نام نویسنده حداکثر ۲۵۰ نویسه است.';
+                }
+            }
+            $sortOrder = (int) ($old['sort_order'] ?? 0);
+            if (!empty($section['hasOrder'])) {
+                $sortOrder = max(0, (int) ($_POST['sort_order'] ?? $sortOrder));
+            }
+            $requiresLogin = !empty($section['hasLock']) && !empty($_POST['requires_login']);
+
+            $mediaRepo = new MediaRepository();
+            $attachments = [];
+            foreach (['video', 'audio', 'document'] as $role) {
+                [$ids, $attachError] = $validatedAttachments([], $role, $mediaRepo);
+                if ($attachError !== null) { $errors[] = $attachError; }
+                $attachments[$role] = $ids;
+            }
+
+            if ($errors !== []) {
+                // Validation failed: re-render the edit form (HTTP 200) with
+                // the Persian errors; submitted values win over stored ones.
+                $renderForm($sectionPath, $section, [
+                    'title' => 'ویرایش ' . $section['singular'],
+                    'action' => url('/admin/' . $sectionPath . '/edit/' . $id),
+                    'item' => array_merge($old, $_POST, ['id' => $id, 'content_type' => $type]),
+                    'errors' => $errors,
+                    'attachedMedia' => $mediaRepo->forContent($id),
+                    'postedMedia' => $attachments,
+                ]);
+                return;
+            }
+
+            db_transaction(static function () use ($contents, $id, $data, $type, $author, $sortOrder, $requiresLogin, $attachments, $mediaRepo): void {
+                $contents->update($id, $data);
+                if ($type === 'book') {
+                    (new BookRepository())->save($id, $author);
+                } elseif ($type === 'research') {
+                    (new ResearchRepository())->save($id, $author);
+                } elseif ($type === 'lesson') {
+                    (new LessonRepository())->save($id, $sortOrder, $requiresLogin);
+                }
+                // Sync role attachments: detach what was removed, attach new ids.
+                $current = [];
+                foreach ($mediaRepo->forContent($id) as $row) {
+                    $current[(string) $row['role']][] = (int) $row['id'];
+                }
+                foreach (['video', 'audio', 'document'] as $role) {
+                    $desired = $attachments[$role];
+                    foreach ($current[$role] ?? [] as $existingId) {
+                        if (!in_array($existingId, $desired, true)) {
+                            $mediaRepo->detachFromContent($id, $existingId);
+                        }
+                    }
+                    foreach ($desired as $i => $mediaId) {
+                        $mediaRepo->attachToContent($id, $mediaId, $role, $i);
+                    }
+                }
+            });
+
+            redirect('/admin/' . $sectionPath, 303);
+        });
+
+        // -------- view (same form, existing item) --------
+        $router->get('/admin/' . $sectionPath . '/{id}', static function (array $params) use ($renderForm, $sectionPath, $section, $type, $loadItem): void {
+            $repo = match ($type) {
+                'book' => new BookRepository(),
+                'lesson' => new LessonRepository(),
+                default => new ResearchRepository(),
+            };
+            $item = $loadItem($repo, (int) $params['id']);
+            if (!$item) { return; }
+            $renderForm($sectionPath, $section, [
+                'title' => 'مشاهده ' . $section['singular'],
+                'action' => url('/admin/' . $sectionPath . '/edit/' . (int) $item['id']),
+                'item' => $item,
+                'attachedMedia' => (new MediaRepository())->forContent((int) $item['id']),
+            ]);
+        });
+
+        // -------- delete --------
+        $router->add('POST', '/admin/' . $sectionPath . '/{id}/delete', static function (array $params) use ($adminOnly, $sectionPath, $type): void {
+            if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+            if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) {
+                http_response_code(403); echo 'درخواست نامعتبر است.'; return;
+            }
+            $repo = new ContentRepository();
+            $item = $repo->find((int) $params['id']);
+            if (!$item || (string) $item['content_type'] !== $type) {
+                http_response_code(404); echo 'پیدا نشد'; return;
+            }
+            // The schema cascades: books/lessons/research row, content_media
+            // and content_relations are removed with the contents row.
+            $repo->delete((int) $params['id']);
+            redirect('/admin/' . $sectionPath, 303);
+        });
+    }
 
     $router->add('POST', '/logout', static function (): void {
         $csrf = is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null;

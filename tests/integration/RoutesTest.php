@@ -57,9 +57,21 @@ final class RoutesTest extends TestCase
         $router = new Router();
         define_routes($router);
 
+        // A real request splits the query string off before routing and
+        // fills $_GET with it — mirror that here so "/search?q=x" reaches
+        // the route table as path "/search" plus $_GET['q'].
+        $parts = parse_url($path);
+        $routePath = (string) ($parts['path'] ?? '/');
+        $_SERVER['QUERY_STRING'] = (string) ($parts['query'] ?? '');
+        $_SERVER['REQUEST_URI'] = $path;
+        $_GET = [];
+        if ($_SERVER['QUERY_STRING'] !== '') {
+            parse_str($_SERVER['QUERY_STRING'], $_GET);
+        }
+
         http_response_code(200); // explicit default: CLI has no implicit 200
         ob_start();
-        $router->dispatch($method, $path);
+        $router->dispatch($method, $routePath);
         $body = (string) ob_get_clean();
         $code = (int) http_response_code();
         http_response_code(200); // reset for other tests

@@ -19,6 +19,10 @@ final class SchemaTest extends TestCase
         'report_images',
         'content_media',
         'content_relations',
+        // Phase 6 knowledge extension tables
+        'books',
+        'research',
+        'lessons',
         'users',
         'login_attempts',
     ];
@@ -43,7 +47,7 @@ final class SchemaTest extends TestCase
         foreach (self::TABLES as $table) {
             $this->assertTrue(in_array($table, $tables, true), "schema.sql must create `{$table}`");
         }
-        $this->assertSame(count(self::TABLES), count($tables), 'no unexpected extra tables in Phase 2 + Phase 3');
+        $this->assertSame(count(self::TABLES), count($tables), 'no unexpected extra tables in Phase 2 + Phase 3 + Phase 6');
     }
 
     public function testTablesAreCreatedAfterTheTablesTheyReference(): void
@@ -59,6 +63,10 @@ final class SchemaTest extends TestCase
             'report_images'     => ['reports', 'media'],
             'content_media'     => ['contents', 'media'],
             'content_relations' => ['contents'],
+            // Phase 6 knowledge extensions hang off the same spine
+            'books'             => ['contents'],
+            'research'          => ['contents'],
+            'lessons'           => ['contents'],
         ];
 
         foreach ($dependencies as $table => $needs) {
@@ -76,7 +84,7 @@ final class SchemaTest extends TestCase
         // Checked against the parsed statements, not the raw file, so prose
         // in the header comments cannot influence the result.
         $creates = $this->createTableStatements();
-        $this->assertSame(count(self::TABLES), count($creates), 'one CREATE TABLE per Phase 2 table');
+        $this->assertSame(count(self::TABLES), count($creates), 'one CREATE TABLE per content/auth table');
 
         foreach ($creates as $statement) {
             $name = $this->tableNameOf($statement);

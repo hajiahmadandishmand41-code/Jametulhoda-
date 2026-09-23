@@ -108,8 +108,11 @@ final class AuthenticationTest extends TestCase
 
         $service->logout();
 
-        $this->assertFalse(isAuthenticated());
+        // session_status() must be read BEFORE isAuthenticated(): the guard
+        // calls SessionManager::start(), which legitimately opens a fresh
+        // (empty) session — that must not read as "still logged in".
         $this->assertSame(PHP_SESSION_NONE, session_status());
+        $this->assertFalse(isAuthenticated());
     }
 
     public function testRateLimiterBlocksRepeatedFailuresWithoutExternalService(): void
