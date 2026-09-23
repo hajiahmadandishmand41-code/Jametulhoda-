@@ -15,6 +15,9 @@ declare(strict_types=1);
  * @var list<array<string,mixed>>     $articles
  * @var list<array<string,mixed>>     $reports
  * @var list<array<string,mixed>>     $events
+ * @var list<array<string,mixed>>     $books
+ * @var list<array<string,mixed>>     $lessons
+ * @var list<array<string,mixed>>     $research
  * @var list<array<string,mixed>>     $topics
  */
 
@@ -106,6 +109,9 @@ $card = static function (array $item, string $type, bool $withImage = true): voi
         ['items' => $articles ?? [],     'type' => 'article', 'label' => 'مقالات',     'href' => '/articles'],
         ['items' => $reports ?? [],      'type' => 'report',  'label' => 'گزارش‌ها',   'href' => '/reports'],
         ['items' => $events ?? [],       'type' => 'event',   'label' => 'رویدادها',   'href' => '/events'],
+        ['items' => $books ?? [],        'type' => 'book',    'label' => 'کتاب‌ها',    'href' => '/books'],
+        ['items' => $lessons ?? [],      'type' => 'lesson',  'label' => 'درس‌ها',     'href' => '/lessons'],
+        ['items' => $research ?? [],     'type' => 'research','label' => 'پژوهش‌ها',   'href' => '/research'],
     ];
     foreach ($sectionData as $section):
         $items = $section['items'];

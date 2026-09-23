@@ -6,18 +6,18 @@ declare(strict_types=1);
 $user = currentUser();
 $pageTitle = (string) ($title ?? 'داشبورد');
 $navigation = [
-    ['label' => 'داشبورد', 'icon' => '⌂', 'active' => true],
+    ['label' => 'داشبورد', 'icon' => '⌂', 'href' => '/admin'],
     ['label' => 'محتوا', 'icon' => '▤', 'href' => '/admin/content'],
-    ['label' => 'مقالات', 'icon' => '▥'],
-    ['label' => 'گزارش‌ها', 'icon' => '▦'],
-    ['label' => 'رویدادها', 'icon' => '◷'],
+    ['label' => 'مقالات', 'icon' => '▥', 'href' => '/admin/articles'],
+    ['label' => 'خبرها', 'icon' => '￭', 'href' => '/admin/news'],
+    ['label' => 'گزارش‌ها', 'icon' => '▦', 'href' => '/admin/reports'],
+    ['label' => 'رویدادها', 'icon' => '◷', 'href' => '/admin/events'],
     ['label' => 'کتاب‌ها', 'icon' => '❑', 'href' => '/admin/books'],
     ['label' => 'درس‌ها', 'icon' => '≣', 'href' => '/admin/lessons'],
     ['label' => 'پژوهش‌ها', 'icon' => '◎', 'href' => '/admin/research'],
     ['label' => 'رسانه‌ها', 'icon' => '◉', 'href' => '/admin/media'],
     ['label' => 'موضوعات', 'icon' => '◆', 'href' => '/admin/topics'],
-    ['label' => 'کاربران', 'icon' => '♙'],
-    ['label' => 'تنظیمات', 'icon' => '⚙'],
+    ['label' => 'کاربران', 'icon' => '♙', 'href' => '/admin/users'],
 ];
 ?>
 <!DOCTYPE html>
@@ -32,18 +32,21 @@ $navigation = [
 <div class="admin-shell">
     <aside class="admin-sidebar" aria-label="ناوبری پنل مدیریت">
         <div class="admin-brand">
-            <span class="admin-brand-mark" aria-hidden="true">ن</span>
+            <img class="admin-brand-logo" src="<?= e(asset('img/logo.svg')) ?>" alt="<?= e((string) Config::get('app.name')) ?>" width="34" height="34">
             <span><?= e((string) Config::get('app.name')) ?></span>
         </div>
         <p class="admin-section-label">اتاق خبر</p>
         <nav class="admin-nav">
+            <?php $adminCurrentPath = current_path(); ?>
             <?php foreach ($navigation as $item): ?>
-                <?php if (!empty($item['active'])): ?>
-                    <a class="admin-nav-item is-active" href="<?= e(url('/admin')) ?>" aria-current="page">
+                <?php
+                $itemHref = $item['href'] ?? '';
+                $isActive = $itemHref !== '' && ($adminCurrentPath === $itemHref || ($itemHref === '/admin' && $adminCurrentPath === '/admin') || ($itemHref !== '/admin' && str_starts_with($adminCurrentPath, $itemHref)));
+                ?>
+                <?php if (!empty($item['href'])): ?>
+                    <a class="admin-nav-item<?= $isActive ? ' is-active' : '' ?>" href="<?= e(url($item['href'])) ?>"<?= $isActive ? ' aria-current="page"' : '' ?>>
                         <span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span>
                     </a>
-                <?php elseif (!empty($item['href'])): ?>
-                    <a class="admin-nav-item" href="<?= e(url($item['href'])) ?>"><span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span></a>
                 <?php else: ?>
                     <span class="admin-nav-item is-disabled" aria-disabled="true"><span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span></span>
                 <?php endif; ?>

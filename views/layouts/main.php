@@ -28,7 +28,7 @@ $authenticated = function_exists('isAuthenticated') && isAuthenticated();
 $logoutCsrfField = $authenticated && function_exists('csrf_field') ? csrf_field() : '';
 $canonical = url(current_path());
 $ogType = (string) ($ogType ?? 'website');
-$ogImage = isset($ogImage) && (string) $ogImage !== '' ? (string) $ogImage : '';
+$ogImage = isset($ogImage) && (string) $ogImage !== '' ? (string) $ogImage : asset('img/logo.svg');
 $noindex = !empty($noindex);
 $activePath = current_path();
 
@@ -67,6 +67,7 @@ $is_active = static function (string $path) use ($activePath): bool {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($pageTitle) ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= e(asset('img/logo.svg')) ?>">
     <meta name="description" content="<?= e($description) ?>">
     <?php if ($noindex): ?>
     <meta name="robots" content="noindex, follow">
@@ -94,7 +95,7 @@ $is_active = static function (string $path) use ($activePath): bool {
 <header class="site-header">
     <div class="container header-inner">
         <a class="brand" href="<?= e(url('/')) ?>">
-            <span class="brand-mark" aria-hidden="true">ج</span>
+            <img class="brand-logo" src="<?= e(asset('img/logo.svg')) ?>" alt="<?= e($appName) ?>" width="42" height="42">
             <span class="brand-name"><?= e($appName) ?></span>
         </a>
 
@@ -136,7 +137,10 @@ $is_active = static function (string $path) use ($activePath): bool {
 <footer class="site-footer">
     <div class="container footer-grid">
         <div class="footer-col footer-about">
-            <p class="footer-brand"><?= e($appName) ?></p>
+            <div class="footer-brand-row">
+                <img class="footer-logo" src="<?= e(asset('img/logo.svg')) ?>" alt="<?= e($appName) ?>" width="36" height="36">
+                <p class="footer-brand"><?= e($appName) ?></p>
+            </div>
             <p><?= e((string) Config::get('app.description')) ?></p>
         </div>
         <nav class="footer-col" aria-label="بخش‌های اصلی">

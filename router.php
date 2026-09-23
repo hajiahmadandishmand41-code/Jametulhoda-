@@ -29,17 +29,29 @@ function define_routes(Router $router): void
         // The home page is the site's entry point: a transient database
         // problem should degrade to a professional empty state, never a hard
         // 500 for every visitor. Detail/listing pages still surface errors.
-        $news = $articles = $reports = $events = $topics = [];
+        $news = $articles = $reports = $events = $topics = $books = $lessons = $research = [];
         try {
             $repo = new ContentRepository();
             $news = $repo->publicList('news', 7, 0);
             $articles = $repo->publicList('article', 4, 0);
             $reports = $repo->publicList('report', 4, 0);
             $events = $repo->publicList('event', 4, 0);
+            $books = (new BookRepository())->publicList([], 4, 0);
+            $lessons = (new LessonRepository())->publicList([], 4, 0);
+            $research = (new ResearchRepository())->publicList([], 4, 0);
             $topics = (new TopicRepository())->allActive();
         } catch (Throwable $e) {
             log_error('Home page data load failed: ' . get_class($e));
         }
+        // JSON-LD Organization schema for the home page
+        $jsonLd = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Organization',
+            'name' => (string) Config::get('app.name'),
+            'description' => (string) Config::get('app.description'),
+            'url' => url('/'),
+            'inLanguage' => 'fa',
+        ];
         view('home', [
             'title' => '',
             'metaDescription' => (string) Config::get('app.description'),
@@ -49,8 +61,12 @@ function define_routes(Router $router): void
             'articles' => $articles,
             'reports' => $reports,
             'events' => $events,
+            'books' => $books,
+            'lessons' => $lessons,
+            'research' => $research,
             'topics' => $topics,
             'isHome' => true,
+            'jsonLd' => $jsonLd,
         ]);
     });
 
@@ -606,6 +622,7 @@ function define_routes(Router $router): void
         echo "Disallow: /admin\n";
         echo "Disallow: /login\n";
         echo "Disallow: /search\n";
+        echo "Disallow: /install.php\n";
         echo 'Sitemap: ' . url('/sitemap.xml') . "\n";
     });
 
@@ -1101,6 +1118,82 @@ function define_routes(Router $router): void
             redirect('/admin/' . $sectionPath, 303);
         });
     }
+
+    // -----------------------------------------------------------------
+    // Admin: User management
+    // -----------------------------------------------------------------
+    $router->get('/admin/users', static function () use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+        $users = db_all('SELECT `id`, `name`, `email`, `role`, `is_active`, `last_login_at` FROM `users` ORDER BY `id` ASC');
+        admin_view('users', ['title' => 'کاربران', 'users' => $users]);
+    });
+
+    $router->get('/admin/users/new', static function () use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); echo 'دسترسی غیرمجاز'; return; }
+        admin_view('user_form', ['title' => 'کاربر جدید', 'action' => url('/admin/users/new'), 'user' => ['role' => 'user', 'is_active' => 1]]);
+    });
+
+    $router->add('POST', '/admin/users/new', static function () use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); echo 'درخواست نامعتبر است.'; return; }
+        $name = trim((string) ($_POST['name'] ?? ''));
+        $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+        $password = (string) ($_POST['password'] ?? '');
+        $role = (string) ($_POST['role'] ?? 'user');
+        $errors = [];
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 160) $errors[] = 'نام الزامی است.';
+        if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) $errors[] = 'ایمیل نامعتبر است.';
+        if (strlen($password) < 8) $errors[] = 'رمز عبور باید حداقل ۸ نویسه باشد.';
+        if (!in_array($role, UserRepository::ROLES, true)) $errors[] = 'نقش نامعتبر است.';
+        if ($errors) { admin_view('user_form', ['title' => 'کاربر جدید', 'action' => url('/admin/users/new'), 'user' => $_POST, 'errors' => $errors]); return; }
+        try {
+            (new UserRepository())->createWithPassword($name, $email, $password, $role);
+        } catch (DuplicateEmailException) {
+            $errors[] = 'این ایمیل قبلاً ثبت شده است.';
+            admin_view('user_form', ['title' => 'کاربر جدید', 'action' => url('/admin/users/new'), 'user' => $_POST, 'errors' => $errors]);
+            return;
+        }
+        redirect('/admin/users', 303);
+    });
+
+    $router->get('/admin/users/edit/{id}', static function (array $params) use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); return; }
+        $user = db_one('SELECT * FROM `users` WHERE `id` = ?', [(int) $params['id']]);
+        if (!$user) { http_response_code(404); echo 'پیدا نشد'; return; }
+        admin_view('user_form', ['title' => 'ویرایش کاربر', 'action' => url('/admin/users/edit/' . $user['id']), 'user' => $user, 'isEdit' => true]);
+    });
+
+    $router->add('POST', '/admin/users/edit/{id}', static function (array $params) use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
+        $id = (int) $params['id'];
+        $old = db_one('SELECT * FROM `users` WHERE `id` = ?', [$id]);
+        if (!$old) { http_response_code(404); return; }
+        $name = trim((string) ($_POST['name'] ?? ''));
+        $role = (string) ($_POST['role'] ?? 'user');
+        $password = (string) ($_POST['password'] ?? '');
+        $errors = [];
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 160) $errors[] = 'نام الزامی است.';
+        if (!in_array($role, UserRepository::ROLES, true)) $errors[] = 'نقش نامعتبر است.';
+        if ($password !== '' && strlen($password) < 8) $errors[] = 'رمز عبور باید حداقل ۸ نویسه باشد.';
+        if ($errors) { admin_view('user_form', ['title' => 'ویرایش کاربر', 'action' => url('/admin/users/edit/' . $id), 'user' => array_merge($old, $_POST), 'isEdit' => true, 'errors' => $errors]); return; }
+        $data = ['name' => $name, 'role' => $role];
+        if ($password !== '') {
+            $data['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
+        }
+        db_update('users', $data, ['id' => $id]);
+        redirect('/admin/users', 303);
+    });
+
+    $router->add('POST', '/admin/users/{id}/toggle', static function (array $params) use ($adminOnly): void {
+        if (!$adminOnly()) { http_response_code(403); return; }
+        if (!csrf_verify(is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null)) { http_response_code(403); return; }
+        $id = (int) $params['id'];
+        $user = db_one('SELECT `is_active` FROM `users` WHERE `id` = ?', [$id]);
+        if (!$user) { http_response_code(404); return; }
+        db_update('users', ['is_active' => (int) $user['is_active'] ? 0 : 1], ['id' => $id]);
+        redirect('/admin/users', 303);
+    });
 
     $router->add('POST', '/logout', static function (): void {
         $csrf = is_string($_POST[Csrf::FIELD] ?? null) ? $_POST[Csrf::FIELD] : null;
