@@ -66,7 +66,10 @@ function installer_apply_migrations(PDO $pdo): array
 
     foreach (installer_migration_files() as $path) {
         $name = basename($path);
-        $checksum = hash_file('sha256', $path) ?: str_repeat('0', 64);
+        $checksum = @hash_file('sha256', $path);
+        if (!is_string($checksum)) {
+            throw new RuntimeException('Migration file unreadable');
+        }
         $stmt = $pdo->prepare('SELECT `checksum` FROM `schema_migrations` WHERE `migration` = ? LIMIT 1');
         $stmt->execute([$name]);
         $recordedChecksum = $stmt->fetchColumn();
@@ -85,7 +88,10 @@ function installer_apply_migrations(PDO $pdo): array
             continue;
         }
 
-        $sql = (string) file_get_contents($path);
+        $sql = @file_get_contents($path);
+        if (!is_string($sql) || trim($sql) === '') {
+            throw new RuntimeException('Migration file empty or unreadable');
+        }
         foreach (sql_split_statements($sql) as $statement) {
             $pdo->exec($statement);
             $executed++;
@@ -97,4 +103,3 @@ function installer_apply_migrations(PDO $pdo): array
 
     return ['executed' => $executed, 'recorded' => $recorded, 'skipped' => $skipped];
 }
-

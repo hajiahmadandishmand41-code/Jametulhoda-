@@ -300,9 +300,10 @@ if (is_file($lockFile)) {
         if (is_file($localConfigFile) && empty($_POST['confirm_overwrite'])) {
             $errors[] = 'config/local.php از قبل وجود دارد. برای ادامه باید گزینهٔ تأیید بازنویسی را فعال کنید.';
         }
-        $errors = array_merge($errors, installer_validate_input($old));
         if (!installer_requirements_ok()) {
             $errors[] = 'پیش‌نیازهای نصب کامل نیستند.';
+        } else {
+            $errors = array_merge($errors, installer_validate_input($old));
         }
 
         if ($errors === []) {
@@ -386,7 +387,7 @@ $requirements = installer_requirements();
         <?php if ($locked): ?>
             <div class="install-success" role="status">
                 <h2>Installer قفل است</h2>
-                <p>این سایت قبلاً نصب شده است. برای نصب مجدد باید آگاهانه فایل <code>config/installed.lock</code> را حذف کنید.</p>
+                <p>این سایت قبلاً نصب شده است. برای ارتقای نسخه از تنظیمات سایت در پنل مدیر استفاده کنید؛ قفل نصب را حذف نکنید.</p>
                 <div class="install-actions">
                     <a class="btn" href="<?= e(url('/login')) ?>">ورود</a>
                     <a class="btn btn-ghost" href="<?= e(url('/admin')) ?>">پنل مدیریت</a>

@@ -646,9 +646,10 @@ function define_routes(Router $router): void
         header('Content-Type: text/plain; charset=UTF-8');
         echo "User-agent: *\n";
         echo "Allow: /\n";
-        echo "Disallow: /admin\n";
-        echo "Disallow: /login\n";
-        echo "Disallow: /search\n";
+        $base = rtrim(site_base_path(), '/');
+        foreach (['/admin', '/login', '/search'] as $privatePath) {
+            echo 'Disallow: ' . $base . $privatePath . "\n";
+        }
         echo 'Sitemap: ' . absolute_url('/sitemap.xml') . "\n";
     });
 
