@@ -18,7 +18,7 @@ $navigation = [
     ['label' => 'پژوهش‌ها', 'icon' => '◎', 'href' => '/admin/research'],
     ['label' => 'رسانه‌ها', 'icon' => '◉', 'href' => '/admin/media'],
     ['label' => 'موضوعات', 'icon' => '◆', 'href' => '/admin/topics'],
-    ['label' => 'کاربران', 'icon' => '♙', 'href' => '/admin/users'],
+    ['label' => 'کاربران', 'icon' => '♙', 'href' => '/admin/users', 'role' => 'admin'],
 ];
 ?>
 <!DOCTYPE html>
@@ -39,6 +39,7 @@ $navigation = [
         <p class="admin-section-label">اتاق خبر</p>
         <nav class="admin-nav">
             <?php foreach ($navigation as $item): ?>
+                <?php if (($item['role'] ?? null) === 'admin' && (string) ($user['role'] ?? '') !== 'admin') { continue; } ?>
                 <?php $isActive = $activePath === $item['href'] || ($item['href'] !== '/admin' && str_starts_with($activePath, $item['href'] . '/')); ?>
                 <a class="admin-nav-item<?= $isActive ? ' is-active' : '' ?>" href="<?= e(url($item['href'])) ?>"<?= $isActive ? ' aria-current="page"' : '' ?>>
                     <span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span>

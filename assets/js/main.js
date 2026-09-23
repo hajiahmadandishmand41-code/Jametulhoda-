@@ -57,6 +57,25 @@
             });
         }
 
+        var contentType = document.querySelector('select[name="content_type"]');
+        var eventFields = document.querySelector('.content-extra-event');
+        var reportFields = document.querySelector('.content-extra-report');
+        function updateContentExtras() {
+            if (!contentType) {
+                return;
+            }
+            if (eventFields) {
+                eventFields.classList.toggle('is-hidden', contentType.value !== 'event');
+            }
+            if (reportFields) {
+                reportFields.classList.toggle('is-hidden', contentType.value !== 'report');
+            }
+        }
+        if (contentType) {
+            contentType.addEventListener('change', updateContentExtras);
+            updateContentExtras();
+        }
+
         document.addEventListener('submit', function (event) {
             var form = event.target;
             if (form && form.getAttribute && form.getAttribute('data-confirm')) {

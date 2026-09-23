@@ -30,13 +30,13 @@
     <article class="admin-panel admin-panel-muted">
         <div class="panel-heading"><div><p class="admin-kicker">ساختار محتوا</p><h3>موضوعات فعال</h3></div><span class="panel-icon">◆</span></div>
         <div class="topic-total"><strong><?= e($stats['topics']) ?></strong><span>موضوع ثبت‌شده در سامانه</span></div>
-        <p class="panel-note">بخش‌های تحریریه به‌صورت مرحله‌ای فعال خواهند شد. در این مرحله تنها نمای کلی داشبورد در دسترس است.</p>
+        <p class="panel-note">همهٔ بخش‌های اصلی محتوا، رسانه، موضوعات و کاربران از منوی مدیریت در دسترس نقش‌های مجاز هستند.</p>
     </article>
 </section>
 
-<section class="architecture-note" aria-label="راهنمای توسعه آینده">
+<section class="architecture-note" aria-label="راهنمای مدیریت">
     <span class="architecture-note-icon" aria-hidden="true">✦</span>
-    <div><h3>آماده برای توسعه newsroom</h3><p>ساختار داشبورد برای افزودن ویجت‌های آخرین خبرها، خبرهای برتر، داستان ویژه و چندرسانه‌ای آماده شده است؛ منطق تحریریه این بخش‌ها هنوز فعال نیست.</p></div>
+    <div><h3>پنل مدیریت فعال</h3><p>از این پنل می‌توانید محتوا را پیش‌نویس، منتشر، بایگانی یا حذف کنید؛ رسانه‌ها و موضوعات را مدیریت کنید و مدیر سیستم کاربران را کنترل می‌کند.</p></div>
 </section>
 
 <section class="admin-panel latest-panel"><div class="panel-heading"><div><p class="admin-kicker">به‌روزرسانی</p><h3>آخرین محتوا</h3></div><a href="<?=e(url('/admin/content'))?>">مشاهده همه</a></div><div class="latest-list"><?php foreach(($latest??[]) as $item): ?><a href="<?=e(url('/admin/content/edit/'.$item['id']))?>"><strong><?=e($item['title'])?></strong><span><?=e($item['updated_at'])?></span></a><?php endforeach; ?><?php if(empty($latest)): ?><p class="empty-state">هنوز محتوایی ثبت نشده است.</p><?php endif; ?></div></section>

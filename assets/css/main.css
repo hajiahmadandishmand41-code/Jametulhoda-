@@ -1738,3 +1738,56 @@ a:hover {
     font-size: .75rem;
     font-weight: 800;
 }
+
+.admin-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+.content-extra-fields {
+    display: grid;
+    gap: 12px;
+}
+.content-extra-fields.is-hidden {
+    display: none;
+}
+.link-button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--color-primary);
+    font: inherit;
+    cursor: pointer;
+}
+.link-button:hover {
+    text-decoration: underline;
+}
+.media-preview-cell img,
+.media-preview-cell video {
+    max-width: 180px;
+    border-radius: 8px;
+    background: #111827;
+}
+.media-preview-cell audio {
+    max-width: 220px;
+}
+.topic-inline-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 8px;
+    min-width: 420px;
+    margin-bottom: 8px;
+}
+.topic-inline-form input {
+    border: 1px solid var(--color-border);
+    border-radius: 7px;
+    padding: 7px 8px;
+    font: inherit;
+}
+@media (max-width: 640px) {
+    .topic-inline-form {
+        grid-template-columns: 1fr;
+        min-width: 260px;
+    }
+}
