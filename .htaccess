@@ -13,9 +13,10 @@ Options -Indexes
     # 1) Never serve dotfiles and internal directories -> 403
     RewriteRule (^|/)(\..*|config|app|views|pages|tests|database|docs|logs)(/|$) - [F,L]
 
-    # 2) Real files/directories (assets, uploads) are served as-is
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
+    # 2) Real files are served as-is. Directories are deliberately NOT
+    # excluded here: /admin is a real directory but its URL is an application
+    # route and must still reach index.php.
+    RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 
     # 3) Everything else goes to the front controller
