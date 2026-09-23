@@ -26,6 +26,7 @@ final class SchemaTest extends TestCase
         'lessons',
         'users',
         'login_attempts',
+        'site_settings',
     ];
 
     public function testSchemaFileParsesIntoStatements(): void

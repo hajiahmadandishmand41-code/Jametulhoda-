@@ -68,7 +68,7 @@ if (!empty($item['updated_at'])) {
 if (isset($ogImage)) {
     $jsonLd['image'] = $ogImage;
 }
-$jsonLd['publisher'] = ['@type' => 'Organization', 'name' => (string) site_setting('name')];
+$jsonLd['publisher'] = ['@type' => 'Organization', 'name' => (string) site_setting('name'), 'logo' => absolute_url(SiteSettings::imagePath('logo'))];
 if ($type === 'event') {
     if (!empty($item['starts_at'])) {
         $jsonLd['startDate'] = date('c', strtotime((string) $item['starts_at']));

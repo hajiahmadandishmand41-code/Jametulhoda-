@@ -31,9 +31,9 @@ final class AdminFoundationTest extends TestCase
         $this->assertTrue($router->match('GET', '/admin/content') !== null);
         $this->assertTrue($router->match('GET', '/admin/news') !== null);
         $this->assertTrue($router->match('GET', '/admin/articles') !== null);
-        // Phase 7+ (users/settings) must stay unregistered.
-        $this->assertNull($router->match('GET', '/admin/users'));
-        $this->assertNull($router->match('GET', '/admin/settings'));
+        // Users and settings are now shipped, guarded admin-only routes.
+        $this->assertTrue($router->match('GET', '/admin/users') !== null);
+        $this->assertTrue($router->match('GET', '/admin/settings') !== null);
         // Note: Router::match() ignores the HTTP method, so a wrong-method
         // probe here would false-positive; method enforcement is covered by
         // the dispatch-level tests and tests/audit/http_test.sh (405).

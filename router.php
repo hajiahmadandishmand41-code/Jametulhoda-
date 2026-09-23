@@ -665,7 +665,15 @@ function define_routes(Router $router): void
             redirect('/login?redirect=' . rawurlencode(current_path()));
         }
 
-        return requireRole('admin');
+        if (!requireRole('admin')) { return false; }
+        // A revoked/deleted admin session must not retain settings/users privileges.
+        $user = currentUser();
+        $fresh = (new UserRepository())->find((int) ($user['id'] ?? 0));
+        if (!$fresh || $fresh['role'] !== 'admin' || !(bool) $fresh['is_active']) {
+            SessionManager::forgetAuthentication();
+            return false;
+        }
+        return true;
     };
     $router->add('POST', '/admin/settings/upgrade', static function () use ($superAdminOnly): void {
         if (!$superAdminOnly()) { admin_forbidden(); return; }
@@ -972,6 +980,11 @@ function define_routes(Router $router): void
 
     $router->get('/admin/content/new', static function () use ($adminOnly, $contentFormData): void {
         if (!$adminOnly()) { admin_forbidden(); return; }
+        $knowledgePath = ['book' => 'books', 'lesson' => 'lessons', 'research' => 'research'];
+        $requestedType = is_string($_GET['type'] ?? null) ? $_GET['type'] : '';
+        if (isset($knowledgePath[$requestedType])) {
+            redirect('/admin/' . $knowledgePath[$requestedType] . '/new');
+        }
         $type = in_array($_GET['type'] ?? '', ['news', 'article', 'report', 'event'], true) ? (string) $_GET['type'] : 'news';
         admin_view('content_form', $contentFormData(['content_type' => $type, 'status' => 'draft']) + [
             'title' => 'محتوای جدید',
@@ -1004,6 +1017,10 @@ function define_routes(Router $router): void
         $repo = new ContentRepository();
         $item = $repo->find((int) $params['id']);
         if (!$item) { admin_not_found(); return; }
+        $knowledgePath = ['book' => 'books', 'lesson' => 'lessons', 'research' => 'research'];
+        if (isset($knowledgePath[$item['content_type']])) {
+            redirect('/admin/' . $knowledgePath[$item['content_type']] . '/edit/' . (int) $item['id']);
+        }
         if ($item['content_type'] === 'event') { $item = (new EventRepository())->find((int) $item['id']) ?? $item; }
         if ($item['content_type'] === 'report') { $item = (new ReportRepository())->find((int) $item['id']) ?? $item; }
         admin_view('content_form', $contentFormData($item) + ['title' => 'ویرایش محتوا', 'action' => url('/admin/content/edit/' . (int) $item['id']), 'item' => $item]);
@@ -1084,7 +1101,7 @@ function define_routes(Router $router): void
         $where = $type === '' ? '' : ' WHERE `media_type` = ?';
         $params = $type === '' ? [] : [$type];
         $media = db_all(
-            'SELECT m.*, (SELECT COUNT(*) FROM `content_media` cm WHERE cm.`media_id` = m.`id`) + (SELECT COUNT(*) FROM `report_images` ri WHERE ri.`media_id` = m.`id`) AS `usage_count`
+            'SELECT m.*, (SELECT COUNT(*) FROM `content_media` cm WHERE cm.`media_id` = m.`id`) + (SELECT COUNT(*) FROM `report_images` ri WHERE ri.`media_id` = m.`id`) + (SELECT COUNT(*) FROM `contents` c WHERE c.`cover_media_id` = m.`id`) AS `usage_count`
              FROM `media` m' . $where . ' ORDER BY m.`created_at` DESC, m.`id` DESC LIMIT 200',
             $params
         );
@@ -1132,7 +1149,7 @@ function define_routes(Router $router): void
             'video/mp4' => ['mp4', 'video', 80 * 1024 * 1024],
             'application/pdf' => ['pdf', 'document', 20 * 1024 * 1024],
         ];
-        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_string($file['tmp_name'] ?? null) || !is_string($file['name'] ?? null) || !is_uploaded_file($file['tmp_name'])) {
             admin_validation_error('فایل انتخاب‌شده کامل دریافت نشد. دوباره تلاش کنید.');
             return;
         }
@@ -1144,7 +1161,9 @@ function define_routes(Router $router): void
             return;
         }
         [$extension, $type, $maxSize] = $allowed[$mime];
-        if ($originalExt !== $extension || (int) ($file['size'] ?? 0) <= 0 || (int) $file['size'] > $maxSize) {
+        $actualSize = filesize($file['tmp_name']);
+        $extensionMatches = $originalExt === $extension || ($extension === 'jpg' && $originalExt === 'jpeg');
+        if (!$extensionMatches || $actualSize === false || $actualSize <= 0 || $actualSize > $maxSize) {
             admin_validation_error('پسوند فایل یا حجم آن با محدودیت این نوع رسانه سازگار نیست.');
             return;
         }
@@ -1166,7 +1185,7 @@ function define_routes(Router $router): void
             return;
         }
         try {
-            (new MediaRepository())->create(['media_type' => $type, 'disk_path' => 'uploads/media/' . $name, 'original_name' => basename($original), 'mime_type' => $mime, 'file_size' => (int) $file['size'], 'title' => $title, 'alt_text' => $altText]);
+            (new MediaRepository())->create(['media_type' => $type, 'disk_path' => 'uploads/media/' . $name, 'original_name' => basename($original), 'mime_type' => $mime, 'file_size' => $actualSize, 'title' => $title, 'alt_text' => $altText]);
         } catch (Throwable $e) {
             @unlink($target);
             throw $e;
