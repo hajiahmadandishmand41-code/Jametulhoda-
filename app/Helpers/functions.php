@@ -21,19 +21,60 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('site_base_path')) {
+    /**
+     * Return the URL path at which the application is installed.
+     *
+     * A configured app.url wins. Otherwise, on a real web request we derive
+     * the directory that contains index.php. This makes the same build work
+     * both at the domain root and in a shared-hosting subdirectory such as
+     * /php or /site without requiring a hard-coded path in the repository.
+     */
+    function site_base_path(): string
+    {
+        $configured = Config::get('app.url');
+        if (is_string($configured) && trim($configured) !== '') {
+            $configuredPath = parse_url($configured, PHP_URL_PATH);
+            if (is_string($configuredPath) && $configuredPath !== '') {
+                $normalized = '/' . trim((string) (preg_replace('#/+#', '/', $configuredPath) ?? ''), '/');
+                return $normalized === '' ? '/' : $normalized;
+            }
+
+            return '/';
+        }
+
+        // CLI tests intentionally behave like a domain-root installation.
+        if (PHP_SAPI !== 'cli') {
+            $script = (string) ($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '');
+            if ($script !== '') {
+                $directory = str_replace('\\', '/', dirname($script));
+                if ($directory !== '.' && $directory !== '/' && $directory !== DIRECTORY_SEPARATOR) {
+                    return '/' . trim($directory, '/');
+                }
+            }
+        }
+
+        return '/';
+    }
+}
+
 if (!function_exists('site_prefix')) {
     /**
-     * URL prefix of the site (no trailing slash).
+     * Public URL prefix.
      *
-     * Empty when the site runs on the domain root (the normal shared-hosting
-     * setup, e.g. an InfinityFree subdomain). Set app.url in config to run
-     * the site in a subdirectory, e.g. 'https://example.com/site'.
+     * When app.url is configured, preserve the configured origin/path.
+     * Otherwise return the auto-detected installation path when the app is
+     * hosted in a subdirectory, or empty string at the domain root.
      */
     function site_prefix(): string
     {
         $configured = Config::get('app.url');
+        if (is_string($configured) && trim($configured) !== '') {
+            return rtrim($configured, '/');
+        }
 
-        return is_string($configured) && $configured !== '' ? rtrim($configured, '/') : '';
+        $basePath = site_base_path();
+        return $basePath === '/' ? '' : $basePath;
     }
 }
 
@@ -331,17 +372,46 @@ if (!function_exists('format_date_fa')) {
     }
 }
 
+if (!function_exists('normalize_request_path')) {
+    /**
+     * Normalize an incoming request and remove the installation prefix.
+     *
+     * Router patterns are always written from the application root:
+     * /news, /books, /admin, ... even when the site is deployed under /php.
+     */
+    function normalize_request_path(string $uri, ?string $basePath = null): string
+    {
+        $path = parse_url($uri, PHP_URL_PATH) ?: '/';
+        $path = rawurldecode((string) $path);
+        $path = '/' . trim((string) (preg_replace('#/+#', '/', $path) ?? ''), '/');
+
+        $basePath = $basePath ?? site_base_path();
+        $basePath = '/' . trim((string) (preg_replace('#/+#', '/', $basePath) ?? ''), '/');
+        if ($basePath === '') {
+            $basePath = '/';
+        }
+
+        if ($basePath !== '/' && ($path === $basePath || str_starts_with($path, $basePath . '/'))) {
+            $path = substr($path, strlen($basePath)) ?: '/';
+            $path = '/' . trim($path, '/');
+        }
+
+        if ($path === '/index.php') {
+            $path = '/';
+        }
+
+        return $path === '' ? '/' : $path;
+    }
+}
+
 if (!function_exists('current_path')) {
     /**
-     * The current request path (no query string), normalized. Used to mark
-     * the active navigation item.
+     * The current request path inside the application (no query string).
+     * Used to mark active navigation and build canonical URLs.
      */
     function current_path(): string
     {
-        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
-        $path = parse_url($uri, PHP_URL_PATH) ?: '/';
-
-        return '/' . trim((string) $path, '/');
+        return normalize_request_path((string) ($_SERVER['REQUEST_URI'] ?? '/'));
     }
 }
 
