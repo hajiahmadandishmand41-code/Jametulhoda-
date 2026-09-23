@@ -40,6 +40,7 @@ require dirname(__DIR__) . '/app/Helpers/admin.php';
 require dirname(__DIR__) . '/config/config.php';
 require dirname(__DIR__) . '/app/Router.php';
 require dirname(__DIR__) . '/config/database.php';
+require dirname(__DIR__) . '/app/Services/SiteSettings.php';
 require dirname(__DIR__) . '/app/Services/SessionManager.php';
 require dirname(__DIR__) . '/app/Services/Csrf.php';
 require dirname(__DIR__) . '/app/Repositories/BaseRepository.php';

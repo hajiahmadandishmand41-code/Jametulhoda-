@@ -15,6 +15,6 @@ RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .phar
 RemoveType .php .phtml .php3 .php4 .php5 .php7 .phar
 
 # Deny direct access to any script file
-<FilesMatch "\.(?i:php|phtml|phar|pl|py|cgi|sh|jsp|asp|aspx)$">
+<FilesMatch "\.(?i:php[0-9]*|phtml|phar|pl|py|cgi|sh|jsp|asp|aspx)$">
     Require all denied
 </FilesMatch>

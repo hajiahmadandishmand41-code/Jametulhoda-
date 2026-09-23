@@ -20,3 +20,6 @@ uploads/media/*
 
 # Composer
 vendor/
+
+/uploads/site/*
+!/uploads/site/.htaccess
