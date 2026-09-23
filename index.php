@@ -26,6 +26,8 @@ require __DIR__ . '/app/Repositories/BaseRepository.php';
 require __DIR__ . '/app/Repositories/UserRepository.php';
 require __DIR__ . '/app/Repositories/ContentRepository.php';
 require __DIR__ . '/app/Repositories/MediaRepository.php';
+require __DIR__ . '/app/Repositories/EventRepository.php';
+require __DIR__ . '/app/Repositories/ReportRepository.php';
 require __DIR__ . '/app/Repositories/TopicRepository.php';
 require __DIR__ . '/app/Services/LoginRateLimiter.php';
 require __DIR__ . '/app/Services/AuthService.php';

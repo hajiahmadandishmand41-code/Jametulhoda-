@@ -183,6 +183,30 @@ final class ContentRepository extends BaseRepository
         ) > 0;
     }
 
+    /** Admin registry query: all content with safe, whitelisted filters. */
+    public function adminList(?string $type, ?string $status, string $search, int $limit = 20, int $offset = 0): array
+    {
+        [$limit, $offset] = $this->paging($limit, $offset, 100);
+        $where = [];
+        $params = [];
+        if ($type !== null && $type !== '') { $this->assertType($type); $where[] = '`c`.`content_type` = ?'; $params[] = $type; }
+        if ($status !== null && $status !== '') { $this->assertStatus($status); $where[] = '`c`.`status` = ?'; $params[] = $status; }
+        if ($search !== '') { $where[] = '`c`.`title` LIKE ?'; $params[] = '%' . $search . '%'; }
+        $sql = 'SELECT c.*, t.title AS topic_title FROM `contents` c LEFT JOIN `topics` t ON t.id=c.topic_id'
+            . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+            . sprintf(' ORDER BY c.updated_at DESC, c.id DESC LIMIT %d OFFSET %d', $limit, $offset);
+        return db_all($sql, $params);
+    }
+
+    public function adminCount(?string $type, ?string $status, string $search): int
+    {
+        $where = []; $params = [];
+        if ($type !== null && $type !== '') { $this->assertType($type); $where[] = '`content_type` = ?'; $params[] = $type; }
+        if ($status !== null && $status !== '') { $this->assertStatus($status); $where[] = '`status` = ?'; $params[] = $status; }
+        if ($search !== '') { $where[] = '`title` LIKE ?'; $params[] = '%' . $search . '%'; }
+        return (int) db_value('SELECT COUNT(*) FROM `contents`' . ($where ? ' WHERE ' . implode(' AND ', $where) : ''), $params, 0);
+    }
+
     /* -----------------------------------------------------------------
      | Writes
      * ----------------------------------------------------------------- */

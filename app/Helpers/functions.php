@@ -116,6 +116,16 @@ if (!function_exists('view')) {
     }
 }
 
+if (!function_exists('slugify')) {
+    /** Make a predictable URL slug while preserving Persian letters. */
+    function slugify(string $value): string
+    {
+        $value = trim(mb_strtolower($value, 'UTF-8'));
+        $value = preg_replace('/[^\p{L}\p{N}]+/u', '-', $value) ?? '';
+        return trim($value, '-');
+    }
+}
+
 if (!function_exists('safe_redirect_path')) {
     /**
      * Accept only a local absolute path for an authentication redirect.
