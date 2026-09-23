@@ -63,7 +63,6 @@ $publicPath = ['books' => '/books', 'lessons' => '/lessons', 'research' => '/res
                     <td><?= e((string) $row['updated_at']) ?></td>
                     <td>
                         <a href="<?= e(url('/admin/' . $sectionPath . '/edit/' . (int) $row['id'])) ?>">ویرایش</a>
-                        <a href="<?= e(url('/admin/' . $sectionPath . '/' . (int) $row['id'])) ?>">مشاهده</a>
                         <a href="<?= e(url($publicPath . '/' . rawurlencode((string) $row['slug']))) ?>">نمایش عمومی</a>
                         <form class="inline-form" method="post" action="<?= e(url('/admin/' . $sectionPath . '/' . (int) $row['id'] . '/delete')) ?>" data-confirm="حذف شود؟">
                             <?= csrf_field() ?>

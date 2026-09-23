@@ -1,61 +1,130 @@
 /* main.js — dependency-free progressive enhancement.
- *
- * Wires the mobile navigation drawer and destructive-form confirmations.
- * Security remains server-side: authorization, CSRF and validation are never
- * delegated to JavaScript.
+ * Navigation, form affordances and media fallbacks are optional enhancements;
+ * every permission, validation and state change remains server-side.
  */
 (function () {
     'use strict';
 
-    document.addEventListener('DOMContentLoaded', function () {
-        var toggle = document.querySelector('.nav-toggle');
-        var nav = document.getElementById('primary-nav');
-        var overlay = document.querySelector('.nav-overlay');
+    function focusable(container) {
+        return Array.prototype.slice.call(container.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
+        )).filter(function (element) {
+            return element.getAttribute('aria-hidden') !== 'true' && element.offsetParent !== null;
+        });
+    }
 
-        function setMenu(open) {
-            if (!toggle || !nav) {
-                return;
-            }
-            nav.classList.toggle('is-open', open);
-            document.body.classList.toggle('nav-open', open);
+    function setupDrawer(options) {
+        var toggle = document.querySelector(options.toggle);
+        var panel = document.querySelector(options.panel);
+        var overlay = document.querySelector(options.overlay);
+        if (!toggle || !panel) {
+            return;
+        }
+
+        var lastFocused = null;
+        var mediaQuery = window.matchMedia(options.desktopQuery || '(min-width: 721px)');
+
+        function setOpen(open, returnFocus) {
+            panel.classList.toggle('is-open', open);
+            document.body.classList.toggle(options.bodyClass, open);
             toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            panel.setAttribute('aria-hidden', open ? 'false' : 'true');
             if (overlay) {
                 overlay.hidden = !open;
             }
-        }
-
-        if (toggle && nav) {
-            toggle.addEventListener('click', function () {
-                setMenu(!nav.classList.contains('is-open'));
-            });
-
-            if (overlay) {
-                overlay.addEventListener('click', function () {
-                    setMenu(false);
-                    toggle.focus();
-                });
+            if (open) {
+                lastFocused = document.activeElement;
+                var items = focusable(panel);
+                if (items.length) {
+                    items[0].focus();
+                }
+            } else if (returnFocus && lastFocused && typeof lastFocused.focus === 'function') {
+                lastFocused.focus();
             }
+        }
 
-            nav.addEventListener('click', function (event) {
-                var target = event.target;
-                if (target && target.closest && target.closest('a')) {
-                    setMenu(false);
+        function syncDesktopState() {
+            if (mediaQuery.matches) {
+                panel.classList.remove('is-open');
+                panel.removeAttribute('aria-hidden');
+                document.body.classList.remove(options.bodyClass);
+                if (overlay) {
+                    overlay.hidden = true;
                 }
-            });
+                toggle.setAttribute('aria-expanded', 'false');
+            } else if (!panel.classList.contains('is-open')) {
+                panel.setAttribute('aria-hidden', 'true');
+            }
+        }
 
-            document.addEventListener('keydown', function (event) {
-                if (event.key === 'Escape' && nav.classList.contains('is-open')) {
-                    setMenu(false);
-                    toggle.focus();
-                }
-            });
+        toggle.addEventListener('click', function () {
+            setOpen(!panel.classList.contains('is-open'), true);
+        });
 
-            window.addEventListener('resize', function () {
-                if (window.matchMedia('(min-width: 721px)').matches) {
-                    setMenu(false);
-                }
+        if (overlay) {
+            overlay.addEventListener('click', function () {
+                setOpen(false, true);
             });
         }
+
+        panel.addEventListener('click', function (event) {
+            var target = event.target;
+            if (target && target.closest && target.closest('a[href]')) {
+                setOpen(false, false);
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (!panel.classList.contains('is-open')) {
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                setOpen(false, true);
+                return;
+            }
+            if (event.key === 'Tab') {
+                var items = focusable(panel);
+                if (!items.length) {
+                    return;
+                }
+                var first = items[0];
+                var last = items[items.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+
+        window.addEventListener('resize', syncDesktopState);
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', syncDesktopState);
+        }
+        syncDesktopState();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.documentElement.classList.add('js-ready');
+        document.body.classList.remove('no-js');
+
+        setupDrawer({
+            toggle: '.nav-toggle',
+            panel: '#primary-nav',
+            overlay: '.nav-overlay',
+            bodyClass: 'nav-open',
+            desktopQuery: '(min-width: 721px)'
+        });
+        setupDrawer({
+            toggle: '.admin-nav-toggle',
+            panel: '#admin-sidebar',
+            overlay: '.admin-sidebar-overlay',
+            bodyClass: 'admin-nav-open',
+            desktopQuery: '(min-width: 861px)'
+        });
 
         var contentType = document.querySelector('select[name="content_type"]');
         var eventFields = document.querySelector('.content-extra-event');
@@ -64,11 +133,17 @@
             if (!contentType) {
                 return;
             }
+            var isEvent = contentType.value === 'event';
+            var isReport = contentType.value === 'report';
             if (eventFields) {
-                eventFields.classList.toggle('is-hidden', contentType.value !== 'event');
+                eventFields.classList.toggle('is-hidden', !isEvent);
+                eventFields.hidden = !isEvent;
+                eventFields.setAttribute('aria-hidden', isEvent ? 'false' : 'true');
             }
             if (reportFields) {
-                reportFields.classList.toggle('is-hidden', contentType.value !== 'report');
+                reportFields.classList.toggle('is-hidden', !isReport);
+                reportFields.hidden = !isReport;
+                reportFields.setAttribute('aria-hidden', isReport ? 'false' : 'true');
             }
         }
         if (contentType) {
@@ -83,6 +158,17 @@
                     event.preventDefault();
                 }
             }
+        });
+
+        // A stale upload must not leave a broken image or a collapsed card.
+        document.querySelectorAll('img').forEach(function (image) {
+            image.addEventListener('error', function () {
+                var parent = image.closest('.card-media, .detail-cover, .gallery-item, .media-preview-cell');
+                if (parent) {
+                    parent.classList.add('image-failed');
+                    image.setAttribute('alt', '');
+                }
+            }, { once: true });
         });
     });
 })();

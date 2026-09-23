@@ -65,7 +65,21 @@ set_exception_handler(static function (Throwable $e): void {
         exit('Uncaught: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . PHP_EOL);
     }
 
-    exit('Internal Server Error');
+    if (!headers_sent()) {
+        header('Content-Type: text/html; charset=UTF-8');
+    }
+    try {
+        view('500', [
+            'title' => 'سرویس موقتاً در دسترس نیست',
+            'metaDescription' => '',
+            'noindex' => true,
+        ]);
+    } catch (Throwable $renderError) {
+        // The fallback is intentionally plain and contains no exception
+        // details, credentials or request-derived data.
+        exit('Internal Server Error');
+    }
+    exit;
 });
 
 /* ---------------------------------------------------------------------------

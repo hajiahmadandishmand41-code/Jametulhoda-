@@ -37,9 +37,10 @@ final class SessionManager
 
         // The array form is supported by PHP 8.1+ and makes SameSite
         // explicit even when the host's php.ini omits it.
+        $cookiePath = site_base_path();
         session_set_cookie_params([
             'lifetime' => 0,
-            'path' => '/',
+            'path' => $cookiePath === '/' ? '/' : $cookiePath . '/',
             'domain' => '',
             'secure' => self::isHttps(),
             'httponly' => true,

@@ -20,29 +20,34 @@ $navigation = [
     ['label' => 'موضوعات', 'icon' => '◆', 'href' => '/admin/topics'],
     ['label' => 'کاربران', 'icon' => '♙', 'href' => '/admin/users', 'role' => 'admin'],
 ];
+$roleLabels = ['admin' => 'مدیر', 'editor' => 'ویرایشگر', 'user' => 'کاربر'];
+$userRole = (string) ($user['role'] ?? 'user');
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
     <title><?= e($pageTitle) ?> | <?= e((string) Config::get('app.name')) ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= e(asset('img/favicon.svg')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/main.css')) ?>">
 </head>
-<body class="admin-body">
+<body class="admin-body no-js">
+<a class="skip-link" href="#main">پرش به محتوای اصلی</a>
 <div class="admin-shell">
-    <aside class="admin-sidebar" aria-label="ناوبری پنل مدیریت">
+    <aside class="admin-sidebar" id="admin-sidebar" aria-label="ناوبری پنل مدیریت">
         <div class="admin-brand">
             <img class="admin-brand-logo" src="<?= e(asset('img/logo.svg')) ?>" alt="" width="38" height="38" aria-hidden="true">
             <span><?= e((string) Config::get('app.name')) ?></span>
         </div>
-        <p class="admin-section-label">اتاق خبر</p>
+        <p class="admin-section-label">مدیریت محتوا</p>
         <nav class="admin-nav">
             <?php foreach ($navigation as $item): ?>
-                <?php if (($item['role'] ?? null) === 'admin' && (string) ($user['role'] ?? '') !== 'admin') { continue; } ?>
+                <?php if (($item['role'] ?? null) === 'admin' && $userRole !== 'admin') { continue; } ?>
                 <?php $isActive = $activePath === $item['href'] || ($item['href'] !== '/admin' && str_starts_with($activePath, $item['href'] . '/')); ?>
                 <a class="admin-nav-item<?= $isActive ? ' is-active' : '' ?>" href="<?= e(url($item['href'])) ?>"<?= $isActive ? ' aria-current="page"' : '' ?>>
-                    <span aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span>
+                    <span class="admin-nav-icon" aria-hidden="true"><?= e($item['icon']) ?></span><span><?= e($item['label']) ?></span>
                 </a>
             <?php endforeach; ?>
         </nav>
@@ -50,27 +55,35 @@ $navigation = [
             <a href="<?= e(url('/')) ?>">← بازگشت به سایت</a>
         </div>
     </aside>
+    <button class="admin-sidebar-overlay" type="button" aria-label="بستن منوی مدیریت" hidden></button>
 
     <div class="admin-workspace">
         <header class="admin-header">
-            <div>
-                <p class="admin-eyebrow">مرکز مدیریت تحریریه</p>
-                <h1><?= e($pageTitle) ?></h1>
+            <div class="admin-header-title">
+                <button class="admin-nav-toggle" type="button" aria-expanded="false" aria-controls="admin-sidebar" aria-label="باز و بسته کردن منوی مدیریت">
+                    <span aria-hidden="true">☰</span>
+                </button>
+                <div>
+                    <p class="admin-eyebrow">مرکز مدیریت تحریریه</p>
+                    <h1><?= e($pageTitle) ?></h1>
+                </div>
             </div>
             <div class="admin-user">
                 <div class="admin-avatar" aria-hidden="true"><?= e(mb_substr((string) ($user['name'] ?? 'ا'), 0, 1)) ?></div>
                 <div class="admin-user-copy">
                     <strong><?= e((string) ($user['name'] ?? 'کاربر')) ?></strong>
-                    <span><?= e(['admin' => 'مدیر', 'editor' => 'ویرایشگر', 'user' => 'کاربر'][(string) ($user['role'] ?? 'user')] ?? 'کاربر') ?></span>
+                    <span><?= e($roleLabels[$userRole] ?? 'کاربر') ?></span>
                 </div>
+                <?php if ($user !== null): ?>
                 <form method="post" action="<?= e(url('/logout')) ?>">
                     <?= csrf_field() ?>
                     <button class="admin-logout" type="submit">خروج</button>
                 </form>
+                <?php endif; ?>
             </div>
         </header>
         <main class="admin-main" id="main">
-            <nav class="admin-breadcrumbs" aria-label="مسیر صفحه"><a href="<?= e(url('/admin')) ?>">پنل مدیریت</a><span aria-hidden="true">/</span><span><?= e($pageTitle) ?></span></nav>
+            <nav class="admin-breadcrumbs" aria-label="مسیر صفحه"><a href="<?= e(url('/admin')) ?>">پنل مدیریت</a><span aria-hidden="true">/</span><span aria-current="page"><?= e($pageTitle) ?></span></nav>
             <?= $content ?>
         </main>
     </div>

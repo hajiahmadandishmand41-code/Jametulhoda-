@@ -483,7 +483,7 @@ $requirements = installer_requirements();
                 </div>
             <?php endif; ?>
 
-            <form class="install-form" method="post" action="<?= e(url('/install.php')) ?>" autocomplete="off" novalidate>
+            <form class="install-form" method="post" action="<?= e(url('/install.php')) ?>" autocomplete="off">
                 <input type="hidden" name="install_csrf" value="<?= e((string) $_SESSION['install_csrf']) ?>">
                 <?php if (is_file($localConfigFile)): ?>
                     <label class="checkbox-label install-confirm"><input type="checkbox" name="confirm_overwrite" value="1"> config/local.php موجود است؛ بازنویسی آگاهانه را تأیید می‌کنم.</label>

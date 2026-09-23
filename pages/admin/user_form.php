@@ -19,10 +19,10 @@ $roleLabels = ['admin' => 'مدیر', 'editor' => 'ویرایشگر', 'user' => 
 </section>
 
 <?php if ($errors): ?>
-<div class="form-errors" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div>
+<div id="user-form-errors" class="form-errors" role="alert"><p><strong>فرم ذخیره نشد.</strong> موارد زیر را اصلاح کنید:</p><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div>
 <?php endif; ?>
 
-<form class="admin-form" method="post" action="<?= e($action) ?>" novalidate>
+<form class="admin-form" method="post" action="<?= e($action) ?>"<?= $errors ? ' aria-describedby="user-form-errors"' : '' ?>>
     <?= csrf_field() ?>
     <label>نام<input name="name" value="<?= e((string) ($item['name'] ?? '')) ?>" maxlength="160" required></label>
     <label>ایمیل<input name="email" type="email" dir="ltr" value="<?= e((string) ($item['email'] ?? '')) ?>" maxlength="254" required></label>

@@ -263,7 +263,7 @@ final class ContentRepository extends BaseRepository
         $params = [];
         if ($type !== null && $type !== '') { $this->assertType($type); $where[] = '`c`.`content_type` = ?'; $params[] = $type; }
         if ($status !== null && $status !== '') { $this->assertStatus($status); $where[] = '`c`.`status` = ?'; $params[] = $status; }
-        if ($search !== '') { $where[] = '`c`.`title` LIKE ?'; $params[] = '%' . $search . '%'; }
+        if ($search !== '') { $where[] = '`c`.`title` LIKE ? ESCAPE \'=\''; $params[] = '%' . $this->escapeLike($search) . '%'; }
         $sql = 'SELECT c.*, t.title AS topic_title FROM `contents` c LEFT JOIN `topics` t ON t.id=c.topic_id'
             . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
             . sprintf(' ORDER BY c.updated_at DESC, c.id DESC LIMIT %d OFFSET %d', $limit, $offset);
@@ -275,7 +275,7 @@ final class ContentRepository extends BaseRepository
         $where = []; $params = [];
         if ($type !== null && $type !== '') { $this->assertType($type); $where[] = '`content_type` = ?'; $params[] = $type; }
         if ($status !== null && $status !== '') { $this->assertStatus($status); $where[] = '`status` = ?'; $params[] = $status; }
-        if ($search !== '') { $where[] = '`title` LIKE ?'; $params[] = '%' . $search . '%'; }
+        if ($search !== '') { $where[] = '`title` LIKE ? ESCAPE \'=\''; $params[] = '%' . $this->escapeLike($search) . '%'; }
         return (int) db_value('SELECT COUNT(*) FROM `contents`' . ($where ? ' WHERE ' . implode(' AND ', $where) : ''), $params, 0);
     }
 

@@ -15,7 +15,8 @@ declare(strict_types=1);
 /** @var array<string,mixed> $cardItem */
 /** @var string $cardType */
 $cardType = $cardType ?? (string) ($cardItem['content_type'] ?? 'news');
-$cover = media_url((string) ($cardItem['cover_path'] ?? ''));
+$coverPath = (string) ($cardItem['cover_path'] ?? '');
+$cover = media_file_exists($coverPath) ? media_url($coverPath) : '';
 $excerptText = excerpt((string) ($cardItem['summary'] ?? $cardItem['body'] ?? ''), 140);
 $cardAuthor = trim((string) ($cardItem['author'] ?? ''));
 ?>

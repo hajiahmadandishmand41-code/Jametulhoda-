@@ -45,13 +45,16 @@ $navItems = [
 ];
 
 /** @var list<array<string,mixed>> $navTopics */
-$navTopics = [];
-try {
-    if (class_exists('TopicRepository')) {
-        $navTopics = array_slice((new TopicRepository())->allActive(), 0, 8);
+$hasTopicsVariable = isset($topics) && is_array($topics);
+$navTopics = $hasTopicsVariable ? array_slice($topics, 0, 8) : [];
+if (!$hasTopicsVariable) {
+    try {
+        if (class_exists('TopicRepository')) {
+            $navTopics = array_slice((new TopicRepository())->allActive(), 0, 8);
+        }
+    } catch (Throwable $e) {
+        $navTopics = [];
     }
-} catch (Throwable $e) {
-    $navTopics = [];
 }
 
 $is_active = static function (string $path) use ($activePath): bool {
@@ -88,7 +91,7 @@ $is_active = static function (string $path) use ($activePath): bool {
     <script type="application/ld+json"><?= json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
     <?php endif; ?>
 </head>
-<body>
+<body class="no-js">
 <a class="skip-link" href="#main">پرش به محتوای اصلی</a>
 <header class="site-header">
     <div class="container header-inner">
